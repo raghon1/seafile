@@ -1,0 +1,4 @@
+#!/bin/bash
+#
+
+chown seafile:seafile ${S3QL_MOUNT_POINT}

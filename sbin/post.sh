@@ -1,11 +1,17 @@
 #!/bin/bash
 #
 
+#docker_image="raghon/seafilepro"
 docker_image="raghon/seafile"
 
 
 # Global variables
 
+
+restore_latest=false
+restore_prog=false
+restore_data=false
+restore_sql=false
 
 
 global() {
@@ -20,7 +26,8 @@ global() {
 	CCNET_IP=${fqdn}
 
 	EXISTING_DB=true
-	MYSQL_HOST=$(docker inspect  -f '{{ .NetworkSettings.IPAddress }}' mariadb)
+	MYSQL_IP=$(docker inspect  -f '{{ .NetworkSettings.IPAddress }}' mariadb)
+	MYSQL_HOST=mysql-container
 	MYSQL_ROOT_USER=root
 
 	CCNET_DB_NAME=${fqdn}-ccnet
@@ -46,10 +53,6 @@ global() {
 	EMAIL_HOST_PASSWORD=$EMAIL_HOST_PASSWORD
 	DEFAULT_FROM_EMAIL=$DEFAULT_FROM_EMAIL
 
-	restore_latest=false
-	restore_prog=true
-	restore_data=false
-	restore_sql=false
 }
 
 
@@ -95,6 +98,7 @@ make_seafile_docker() {
 	fi
 	echo $AUTOCONF
 
+	set -x
 	docker run $init \
 	 --name "${server}"  \
 	 ${extra_docker_opts} \
@@ -104,7 +108,7 @@ make_seafile_docker() {
 	 --cap-add mknod \
 	 --cap-add sys_admin \
 	 --device=/dev/fuse \
-	 --link mariadb:mysql-container \
+	 --link mariadb:$MYSQL_HOST \
 	 --volumes-from nginx \
 	 -e fcgi=true \
 	 -e autonginx=true \
@@ -138,23 +142,23 @@ mk_mysql_user() {
 	exists=1
 	while [ "$exists" -eq 1 ] ; do
 		randuser=$(pwgen  --no-capitalize -n1 -B 15)
-		exists=$(mysql -Ns -h$MYSQL_HOST -e "SELECT EXISTS(SELECT 1 FROM mysql.user WHERE user = '$randuser')")
+		exists=$(mysql -Ns -h$MYSQL_IP -e "SELECT EXISTS(SELECT 1 FROM mysql.user WHERE user = '$randuser')")
 	done
 	MYSQL_USER=$randuser
 	MYSQL_PASSWORD=$(pwgen  --no-capitalize -n1 -B 25)
-	mysql -P3306 -h $MYSQL_HOST -e "create user '$MYSQL_USER'@'%' identified by '$MYSQL_PASSWORD';"
+	mysql -P3306 -h $MYSQL_IP -e "create user '$MYSQL_USER'@'%' identified by '$MYSQL_PASSWORD';"
 }
 
 rm_database() {
 	server=$1
-	dbusers=$(mysql -Ns -h $MYSQL_HOST -Dmysql -e "select user from db where db='${fqdn}-ccnet';")
+	dbusers=$(mysql -Ns -h $MYSQL_IP -Dmysql -e "select user from db where db='${fqdn}-ccnet';")
 	for dbuser in $dbusers ; do
-		mysql -h$MYSQL_HOST -Dmysql -e "drop user '${dbuser}'@'%'"
-		mysql -h$MYSQL_HOST -Dmysql -e "drop user '${dbuser}'@'localhost'"
+		mysql -h$MYSQL_IP -Dmysql -e "drop user '${dbuser}'@'%'"
+		mysql -h$MYSQL_IP -Dmysql -e "drop user '${dbuser}'@'localhost'"
 	done
-	mysql -Dmysql -h$MYSQL_HOST -e "drop database \`${fqdn}-seafile\`"
-	mysql -Dmysql -h$MYSQL_HOST -e "drop database \`${fqdn}-seahub\`"
-	mysql -Dmysql -h$MYSQL_HOST -e "drop database \`${fqdn}-ccnet\`"
+	mysql -Dmysql -h$MYSQL_IP -e "drop database \`${fqdn}-seafile\`"
+	mysql -Dmysql -h$MYSQL_IP -e "drop database \`${fqdn}-seahub\`"
+	mysql -Dmysql -h$MYSQL_IP -e "drop database \`${fqdn}-ccnet\`"
 }
 
 mk_mysql_cred() {
@@ -169,11 +173,11 @@ pass="$DBPASSWORD"
 
 create_dbtables() {
 	
-	mysql -P3306 -h $MYSQL_HOST -e "create database \`${fqdn}-ccnet\`;create database \`${fqdn}-seafile\`; create database \`${fqdn}-seahub\`;"
+	mysql -P3306 -h $MYSQL_IP -e "create database \`${fqdn}-ccnet\`;create database \`${fqdn}-seafile\`; create database \`${fqdn}-seahub\`;"
 
-	mysql -P3306 -h $MYSQL_HOST -e "GRANT ALL PRIVILEGES ON \`${fqdn}-ccnet\`.* to \`$MYSQL_USER\`@\`%\`;"
-	mysql -P3306 -h $MYSQL_HOST -e "GRANT ALL PRIVILEGES ON \`${fqdn}-seafile\`.* to \`$MYSQL_USER\`@\`%\`;"
-	mysql -P3306 -h $MYSQL_HOST -e "GRANT ALL PRIVILEGES ON \`${fqdn}-seahub\`.* to \`$MYSQL_USER\`@\`%\`;"
+	mysql -P3306 -h $MYSQL_IP -e "GRANT ALL PRIVILEGES ON \`${fqdn}-ccnet\`.* to \`$MYSQL_USER\`@\`%\`;"
+	mysql -P3306 -h $MYSQL_IP -e "GRANT ALL PRIVILEGES ON \`${fqdn}-seafile\`.* to \`$MYSQL_USER\`@\`%\`;"
+	mysql -P3306 -h $MYSQL_IP -e "GRANT ALL PRIVILEGES ON \`${fqdn}-seahub\`.* to \`$MYSQL_USER\`@\`%\`;"
 }
 
 
@@ -227,8 +231,8 @@ init_skydns() {
 	S3QL_TYPE=swift
 
 
-	docker run -h nginx -d --name nginx -p 443:443 -p 80:80 -v /opt/seafile/nginx raghon/nginx:latest
-	MYSQL_ROOT_PASSWORD=$(docker run --name mariadb -it raghon/mariadb  | nawk -F= '/^MARIADB_PASS/ {print $2}')
+	docker run -h nginx -d --restart always --name nginx -p 443:443 -p 80:80 -v /opt/seafile/nginx raghon/nginx:latest
+	MYSQL_ROOT_PASSWORD=$(docker run --name mariadb -it --restart always raghon/mariadb  | nawk -F= '/^MARIADB_PASS/ {print $2}')
 	docker start mariadb
 
 
@@ -300,11 +304,13 @@ skydns="false"
 restore="false"
 backup="false"
 rebuildFromBckp="false"
+modify="false"
+fsck="false"
 
 
 OPTIND=1
 
-while getopts "BCD:DFI:PRSTbcdfrtq" option; do
+while getopts "BCD:DFI:PRSTbcdfmo:rqt" option; do
     case $option in
 	D) skydns="true" ; environment="$OPTARG" ;;
         r) rm="true"  ;;
@@ -312,20 +318,32 @@ while getopts "BCD:DFI:PRSTbcdfrtq" option; do
         I) docker_image="$OPTARG";;
         S) init="--rm -it" ; shell="bash -o vi" ;;
         d) init="--rm -it"  ;;
-        f) init="--rm -it" ; shell="/bin/sh -c " ; extra="/etc/my_init.d/01_create_s3ql_fs && umount.s3ql --debug /data" ;;
+        #f) init="--rm -it" ; shell="/bin/sh -c " ; extra="/etc/my_init.d/01_create_s3ql_fs && umount.s3ql --debug /data" ;;
+        f) fsck=true;;
 	C) console="true" ;;
 	F) s3ql_clear="true" ;;
 	B) backup_disaster="true";;
 	b) backup="true";;
+	m) modify="true";;
 	R) rebuildFromBckp="true";;
 	Q) restore="true";;
 	P) mk_mysql_cred;;
 	t) timemachine=true
 	   extra_docker_opts="-p 548";;
+	o) echo $OPTARG;
+	   case "$OPTARG" in
+		sql) restore_sql="true";;
+		prog) restore_prog="true";;
+		data) restore_data="true";;
+		latest) restore_latest="true";;
+	   esac
+   	   ;;
         *) usage ;;
     esac
 done
 shift $((OPTIND - 1))
+
+echo $restore_sql $restore_latest $restore_prog $restore_data
 
 [ "$skydns" == "true" ] && (init_skydns $environment )
 
@@ -338,6 +356,14 @@ for server in $* ; do
 		exec docker exec -it $server bash -o vi
 	fi
 
+	if [ "$fsck" == "true" ] ; then  
+        	init="--rm -it"
+		shell="/bin/sh -c "
+		extra="/etc/my_init.d/01_create_s3ql_fs && umount.s3ql --debug /data"
+		[ "$create" == "true" -a -n "$server" -a "$debug" == "true" ] && make_s3ql_docker $server debug
+		[ "$create" == "true" -a -n "$server" ] && make_s3ql_docker $server
+		exit 0
+	fi
 	if [ "$s3ql_clear" == "true" ] ; then  
 		init="--rm -it" 
 		shell="/bin/sh -c " 
@@ -379,26 +405,25 @@ for server in $* ; do
 	fi
 	if [ "$rebuildFromBckp" == "true" ] ; then
 		#	docker_image=raghon/s3ql
-		S3QL_STORAGE_FS=$server
+		S3QL_STORAGE_FS=$fqdn
 		init="-it"
 		if [ "$debug" == "true" ] ; then 
 			init="--rm -it" 
 		fi
 
 		shell="/bin/sh -c " 
-		restore_latest=true
-		restore_data=false
-		
-		orig_server=$server
-		[ "$create" == "true" -a -n "$server" ] && make_s3ql_docker $server-data
+		extra="/etc/my_init.d/02_restore.sh"
+
+		servername=$server
+		[ "$create" == "true" -a -n "$server" ] && make_seafile_docker $server-data
 		unset extra
 		unset shell
 		AUTOCONF="false"
 
 		restore_latest=false
-	 	extra_docker_opts="--volumes-from $orig_server-data"
+		extra_docker_opts="$extra_docker_opts --restart=always --volumes-from $servername-data"
 		init="-d" 
-		make_seafile_docker $orig_server
+		make_seafile_docker $servername
 		exit 0
 	fi
 	
@@ -408,9 +433,24 @@ for server in $* ; do
 	if [ "$create" == "true" -a -n "$server" ] ; then
 		init="-it"
 		servername=$server
-		DELETE_DATA_DIR=true
 		make_seafile_docker $servername-data
-		extra_docker_opts="$extra_docker_opts --volumes-from $servername-data"
+		extra_docker_opts="$extra_docker_opts --restart=always --volumes-from $servername-data"
+		init="-d"
+		AUTOCONF="false"
+		DELETE_DATA_DIR=false
+		make_seafile_docker $servername
+	fi
+	if [ "$modify" == "true" -a -n "$server" ] ; then
+		# Get environment variables from running docker
+
+		mkdir -p /data/$server
+		docker exec -i gyldendal env | egrep 'CCNET|MYSQL|SEA|restore|S3QL|fcgi' > /data/$server/env
+		. /data/$server/env
+
+		docker stop $server
+		docker rename $server $server-old
+		servername=$server
+		extra_docker_opts="$extra_docker_opts --restart=always --volumes-from $servername-data"
 		init="-d"
 		AUTOCONF="false"
 		DELETE_DATA_DIR=false

@@ -1,0 +1,227 @@
+
+
+
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Seacloud</title>
+<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+<meta name="keywords" content="File Collaboration Team Organization" />
+<link rel="icon" type="image/x-icon" href="/media/img/favicon.png?t=1421256908" />
+<!--[if IE]>
+<link rel="shortcut icon" href="/media/img/favicon.png?t=1421256908"/>
+<![endif]-->
+<link rel="stylesheet" type="text/css" href="/media/css/seahub.min.css?t=1421256908" />
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-30798926-3', 'seacloud.cc');
+  ga('send', 'pageview');
+
+</script>
+
+</head>
+
+<body>
+    <div id="wrapper" class="en">
+        
+        
+        
+
+        <div id="header">
+            <div id="header-inner">
+                
+                <a href="/" id="logo" class="fleft">
+                    
+                    <img src="/media/img/seacloud_logo.png?t=1421256908" title="Seacloud" alt="logo" width="186" height="31" />
+                    
+                </a>
+                
+<ul class="nav">
+    <li class="nav-item">
+        <a href="/home/my/" class="a ">My Home</a>
+    </li>
+    <li class="nav-item" >
+        <a href="/groups/" class="a " >Groups</a>
+    </li>
+    
+    <li class="nav-item">
+        <a href="/help/" class="a ">Help</a>
+    </li>
+</ul>
+
+
+                
+                
+                
+            </div>
+        </div>
+
+        <div id="main" class="clear">
+            <div id="title-panel" class="w100 ovhd">
+                
+            </div>
+            <div id="left-panel">
+                
+            </div>
+            <div id="right-panel">
+                
+            </div>
+            <div id="main-panel" class="clear w100 ovhd">
+                
+
+                
+<div class="text-panel">
+    <p>Unable to access file</p>
+</div>
+
+            </div>
+            <div id="confirm-popup" class="hide">
+                <div id="confirm-con"></div>
+                <button id="confirm-yes" class="btn">Yes</button>
+                <button class="simplemodal-close btn">No</button>
+            </div>
+        </div>
+
+        
+<div id="footer" class="ovhd">           
+  <div class="items fleft">
+                <div class="item">
+                <h4>Seacloud</h4>
+                <ul>
+                    <li><a href="https://seacloud.cc/group/2/wiki/" target="_blank">Introduction</a></li>
+                    <li><a href="https://seacloud.cc/group/2/wiki/">Wiki</a></li>
+                    <li><a href="https://seacloud.cc/group/2/wiki/terms/">Privacy & Terms</a></li>
+                </ul>
+            </div>
+            <div class="item">
+                <h4>Syncing Client</h4>
+                <ul>
+                    <li><a href="http://www.seafile.com/en/download/">Client for Windows, Mac and Linux</a></li>
+                    <li><a href="http://www.seafile.com/en/download/">Mobile Client</a></li>
+                </ul>
+            </div>
+  </div>
+  <div class="other-info fright">
+    <p>Server Version: 4.0.3</p>
+    <p>© 2014 Seafile</p>
+    <p><a href="http://seafile.com/en/about/" target="_blank">About Us</a></p>
+  </div>
+</div>
+
+</div><!-- wrapper -->
+
+<script type="text/javascript" src="/media/js/jq.min.js?t=1421256908"></script>
+<script type="text/javascript" src="/media/js/base.js?t=1421256908"></script>
+<script type="text/javascript">
+$.jstree._themes = '/media/js/themes/';
+function ajaxErrorHandler(xhr, textStatus, errorThrown) {
+    if (xhr.responseText) {
+        feedback($.parseJSON(xhr.responseText).error, 'error');
+    } else {
+        feedback("Failed. Please check the network.", 'error');
+    }    
+}
+
+</script>
+
+<script type="text/javascript">
+(function() {
+    //font icons: for browsers that don't support ':before'
+    var pseudo_test = $('body').append('<span class="sf-icon-share pseudo-test" style="color:#fff;position:fixed;left:0;bottom:0;"></span>').children('.pseudo-test');
+    if (pseudo_test.width() == 0) {
+        var setCon = function(icon, icon_class_prefix, icon_list) {
+            for (var i = 0, len = icon_list.length; i < len; i++) {
+                if (icon.hasClass(icon_class_prefix + icon_list[i].name)) {
+                    icon.html('&#x' + icon_list[i].con + ';');
+                    break;
+                }
+            }
+        };
+        var sf_icons = [
+            {'name':'share', 'con':'e001'},
+            {'name':'removeformat', 'con':'f1e7'}
+        ];
+        var fa_icons = [ 
+            {'name':'trash', 'con':'f014'},
+            {'name':'cog', 'con':'f013'},
+            {'name':'cloud-download', 'con':'f0ed'},
+            {'name':'search', 'con':'f002'},
+            {'name':'minus', 'con':'f068'},
+            {'name':'plus', 'con':'f067'},
+            {'name':'pencil', 'con':'f040'},
+            {'name':'globe', 'con':'f0ac'},
+            {'name':'comment-alt', 'con':'f0e5'},
+            {'name':'double-angle-right', 'con':'f101'},
+            {'name':'font', 'con':'f031'},
+            {'name':'text-height', 'con':'f034'},
+            {'name':'tint', 'con':'f043'},
+            {'name':'bold', 'con':'f032'},
+            {'name':'italic', 'con':'f033'},
+            {'name':'strikethrough', 'con':'f0cc'},
+            {'name':'underline', 'con':'f0cd'},
+            {'name':'list-ul', 'con':'f0ca'},
+            {'name':'list-ol', 'con':'f0cb'},
+            {'name':'indent-left', 'con':'f03b'},
+            {'name':'indent-right', 'con':'f03c'},
+            {'name':'align-left', 'con':'f036'},
+            {'name':'align-center', 'con':'f037'},
+            {'name':'align-right', 'con':'f038'},
+            {'name':'align-justify', 'con':'f039'},
+            {'name':'link', 'con':'f0c1'},
+            {'name':'cut', 'con':'f0c4'},
+            {'name':'picture', 'con':'f03e'},
+            {'name':'undo', 'con':'f0e2'},
+            {'name':'repeat', 'con':'f01e'},
+            {'name':'envelope', 'con':'f003'},
+            {'name':'star', 'con':'f005'},
+            {'name':'star-empty', 'con':'f006'},
+            {'name':'caret-down', 'con':'f0d7'},
+            {'name':'caret-up', 'con':'f0d8'},
+            {'name':'caret-right', 'con':'f0da'},
+            {'name':'ok', 'con':'f00c'},
+            {'name':'double-angle-left', 'con':'f100'},
+            {'name':'double-angle-right', 'con':'f101'},
+            {'name':'double-angle-up', 'con':'f102'},
+            {'name':'double-angle-down', 'con':'f103'},
+            {'name':'zoom-in', 'con':'f00e'},
+            {'name':'zoom-out', 'con':'f010'},
+            {'name':'signout', 'con':'f08b'},
+            {'name':'plus-sign-alt', 'con':'f0fe'},
+            {'name':'upload', 'con':'f01b'},
+            {'name':'ban-circle', 'con':'f05e'},
+            {'name':'move', 'con':'f047'},
+            {'name':'copy', 'con':'f0c5'},
+            {'name':'th', 'con':'f00a'},
+            {'name':'folder-close', 'con':'f07b'},
+            {'name':'rss', 'con':'f09e'},
+            {'name':'desktop', 'con':'f108'},
+            {'name':'user', 'con':'f007'},
+            {'name':'book', 'con':'f02d'},
+            {'name':'comment', 'con':'f075'},
+            {'name':'file', 'con':'f15b'},
+            {'name':'wrench', 'con':'f0ad'},
+            {'name':'group', 'con':'f0c0'},
+            {'name':'lightbulb', 'con':'f0eb'},
+            {'name':'upload-alt', 'con':'f093'},
+            {'name':'download', 'con':'f01a'},
+            {'name':'archive', 'con':'f187'}
+        ];  
+           
+        $('[class^="sf-icon-"]').each(function() {
+            setCon($(this), 'sf-icon-', sf_icons);
+        }); 
+        $('[class^="icon-"], [class$=" icon-"]').each(function() {
+            setCon($(this), 'icon-', fa_icons);
+        }); 
+    }
+    pseudo_test.remove();
+})();
+</script>
+
+</body>
+</html>
