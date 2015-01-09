@@ -90,6 +90,8 @@ COPY scripts/seahub-stop.sh /etc/service/seahub/finish
 
 COPY scripts/seafile.crontab /root/seafile.crontab
 
+COPY scripts/seafile_custom.tar /root/seafile_custom.tar
+
 RUN crontab /root/seafile.crontab
 
 VOLUME /opt/seafile
