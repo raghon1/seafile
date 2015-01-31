@@ -306,28 +306,30 @@ backup="false"
 rebuildFromBckp="false"
 modify="false"
 fsck="false"
+upgrade="false"
 
 
 OPTIND=1
 
-while getopts "BCD:DFI:PRSTbcdfmo:rqt" option; do
+while getopts "BCD:DFI:PRSTUbcdfmo:rqt" option; do
     case $option in
+	B) backup_disaster="true";;
+	C) console="true" ;;
 	D) skydns="true" ; environment="$OPTARG" ;;
+	F) s3ql_clear="true" ;;
+        I) docker_image="$OPTARG";;
+	P) mk_mysql_cred;;
+	Q) restore="true";;
+	R) rebuildFromBckp="true";;
+	U) upgrade="true";;
         r) rm="true"  ;;
         c) create="true"  ;;
-        I) docker_image="$OPTARG";;
         S) init="--rm -it" ; shell="bash -o vi" ;;
         d) init="--rm -it"  ;;
         #f) init="--rm -it" ; shell="/bin/sh -c " ; extra="/etc/my_init.d/01_create_s3ql_fs && umount.s3ql --debug /data" ;;
         f) fsck=true;;
-	C) console="true" ;;
-	F) s3ql_clear="true" ;;
-	B) backup_disaster="true";;
 	b) backup="true";;
 	m) modify="true";;
-	R) rebuildFromBckp="true";;
-	Q) restore="true";;
-	P) mk_mysql_cred;;
 	t) timemachine=true
 	   extra_docker_opts="-p 548";;
 	o) echo $OPTARG;
@@ -440,11 +442,11 @@ for server in $* ; do
 		DELETE_DATA_DIR=false
 		make_seafile_docker $servername
 	fi
-	if [ "$modify" == "true" -a -n "$server" ] ; then
+	if [ "$modify" == "true"  -o  "$upgrade" == "true" ] ; then
 		# Get environment variables from running docker
 
 		mkdir -p /data/$server
-		docker exec -i gyldendal env | egrep 'CCNET|MYSQL|SEA|restore|S3QL|fcgi' > /data/$server/env
+		docker exec -i $server env | egrep 'CCNET|MYSQL|SEA|restore|S3QL|fcgi' > /data/$server/env
 		. /data/$server/env
 
 		docker stop $server
