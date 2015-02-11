@@ -1,0 +1,72 @@
+#!/bin/bash
+#
+
+server=${1%%.*}
+domain=${1#*.}
+
+docker stop $server.$domain >/dev/null 2>&1
+docker rm $server.$domain >/dev/null 2>&1
+rm -rf /etc/nginx/tmp_certs/$server.$domain
+
+#storage=/objectStorage/$server
+#mkdir -p $storage
+#chcon -Rt svirt_sandbox_file_t $storage
+
+
+docker run -d -p 3306 -e MYSQL_ROOT_PASSWORD=jeyb-fu-hen-ayn- -e MYSQL_DATABASE=seafile --name $server.$domain-db orchardup/mysql
+
+docker run -it \
+	-h $server \
+	--link $server.$domain-db:db \
+	--name $server.$domain-data \
+	-v /root/.s3ql/authinfo2:/root/.s3ql/authinfo2 \
+	-v /root/.s3ql/swift_hosts:/etc/hosts \
+	--cap-add mknod \
+	--cap-add sys_admin \
+	--device=/dev/fuse \
+	-e VIRTUAL_HOST=${server}.${domain} \
+	-e CUSTOMER=${server}.${domain} \
+	-e DOMAIN=${domain} \
+	-e SEAFILE_DOMAIN_PORT=443 \
+	-e STORAGE=ams01.objectstorage.service.networklayer.com \
+	-e INITFS=false \
+	-e SEAFILE_DOMAIN_NAME=${server}.${domain} \
+	-e admin_user=post@${domain} \
+	-e admin_passwd=newroot \
+	raghon/seafile /usr/local/sbin/bootstrap
+
+
+docker run -d -t --dns=127.0.0.1 -p 10001:10001 -p 8082:8082 -p 12001:12001 -p 443:443 --volumes-from $server.$domain-data --link $server.$domain-db:db \
+	-e SEAFILE_DOMAIN_PORT=443 \
+	-h $server \
+	--link $server.$domain-db:db \
+	--name $server.$domain-data \
+	-v /root/.s3ql/swift_hosts:/etc/hosts \
+	-v /root/.s3ql/authinfo2:/root/.s3ql/authinfo2 \
+	--cap-add mknod \
+	--cap-add sys_admin \
+	--device=/dev/fuse \
+	-e VIRTUAL_HOST=${server}.${domain} \
+	-e VIRTUAL_PORT=8000,10001,8082,12001,443 \
+	-e CUSTOMER=${server}.$domain \
+	-e DOMAIN=${domain} \
+	-e STORAGE=ams01.objectstorage.service.networklayer.com \
+	-e SEAFILE_DOMAIN_NAME=${server}.${domain} --name $server.$domain raghon/seafile
+
+ok=false
+#while [ $ok == "false" ] ; do
+#	ok=true	
+	docker exec $server.$domain cat /etc/nginx/certs/seafile.crt > /etc/nginx/certs/$server.$domain.crt
+	docker exec $server.$domain cat /etc/nginx/certs/seafile.key > /etc/nginx/certs/$server.$domain.key
+#done
+
+#jcp /etc/nginx/tmp_certs/$server/seafile.key /etc/nginx/certs/
+#cp /etc/nginx/tmp_certs/$server/seafile.crt /etc/nginx/certs/
+
+exit 0
+# Check if proxy is running:
+proxy_running=$(docker inspect --format='{{.State.Running}}' proxy)
+echo $proxy_running
+if [ "${proxy_running}" != "true" ] ; then
+	docker run  -d --name proxy -h proxy --security-opt=label:type:docker_t -p 8080:8080 -p 80:80 -p 443:443 -p 10001 -p 12001 -p 8082 -v /etc/nginx/certs:/etc/nginx/certs -v /var/run/docker.sock:/tmp/docker.sock jwilder/nginx-proxy
+fi

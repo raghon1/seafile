@@ -1,0 +1,4 @@
+#!/bin/bash
+#
+
+/usr/bin/docker exec -i fil-te.cloudwalker.no sh -c "/etc/service/seafile/stop"
