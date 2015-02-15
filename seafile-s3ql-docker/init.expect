@@ -1,0 +1,72 @@
+set commandpath [lindex $argv 0]
+set datapath [lindex $argv 1]
+
+spawn $commandpath
+
+expect "ENTER"
+send "\r"
+
+expect "\[server name\]:"
+send "$::env(HOSTNAME) \r"
+
+expect "\[This server's ip or domain\]:"
+send "$::env(HOSTNAME).$::env(DOMAIN)\r"
+
+expect "\[default: 10001 \]"
+send "\r"
+
+expect -re "\[default: .* \]"
+send "$datapath\r"
+
+expect "\[default: 12001 \]"
+send "\r"
+
+expect "\[default: 8082 \]"
+send "\r"
+
+expect "ENTER"
+send "\r"
+
+expect "Please choose a way to initialize seafile databases:"
+send "1\r"
+
+expect "\[ default \"localhost\" \]"
+send "$::env(DB_PORT_3306_TCP_ADDR)\r"
+
+expect "What is the port of mysql server?"
+send "$::env(DB_PORT_3306_TCP_PORT)\r"
+
+expect "What is the password of the mysql root user?"
+send "$::env(DB_ENV_MYSQL_ROOT_PASSWORD)\r"
+
+expect "Enter the name for mysql user of seafile. It would be created if not exists."
+send "root\r"
+
+expect "Enter the database name for ccnet-server:"
+send "\r"
+expect "Enter the database name for seafile-server:"
+send "\r"
+expect "Enter the database name for seahub-server:"
+send "\r"
+
+expect "Press ENTER to continue, or Ctrl-C to abort"
+send "\r"
+
+expect eof
+
+
+
+spawn /opt/seafile/seafile-server-latest/seafile.sh start
+expect eof
+spawn /opt/seafile/seafile-server-latest/seahub.sh start-fastcgi
+
+expect "What is the email for the admin account?"
+send "$::env(admin_user)\r"
+
+expect "What is the password for the admin account?"
+send "$::env(admin_passwd)\r"
+
+expect "admin password again"
+send "$::env(admin_passwd)\r"
+
+expect eof

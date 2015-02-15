@@ -1,0 +1,9 @@
+#!/bin/sh
+
+fsck.s3ql swift://$STORAGE/fs/$CUSTOMER/
+mount.s3ql --log /root/.s3ql/mount.log --compress zlib swift://$STORAGE/fs/$CUSTOMER/ /opt/seafile/seafile-data
+sed -i -e "s/^HOST =.*/HOST = $DB_PORT_3306_TCP_ADDR/g"  /opt/seafile/ccnet/ccnet.conf
+sed -i -e "s/^PORT =.*/PORT = $DB_PORT_3306_TCP_PORT/g"  /opt/seafile/ccnet/ccnet.conf
+sed -i -e "s/^PASSWD =.*/PASSWD = $DB_ENV_MYSQL_ROOT_PASSWORD/g"  /opt/seafile/ccnet/ccnet.conf
+/sbin/my_init
+umount.s3ql /opt/seafile/seafile-data
