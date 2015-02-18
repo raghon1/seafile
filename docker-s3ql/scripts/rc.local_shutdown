@@ -1,0 +1,9 @@
+#!/bin/sh
+#
+
+# Clean unmount s3ql filesystems
+
+for i in $(mount | awk '$5=="fuse.s3ql" {print $3}') ; do 
+	s3qlctrl flushcache $i
+	umount.s3ql $i 
+done

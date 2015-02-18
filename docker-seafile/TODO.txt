@@ -1,0 +1,3 @@
+-add mail sending to seafile configuration
+-fix permission issue with seafile static files (all shared between containers when using nginx autoconfig)
+-Use seafile pro version and allow load balancing
