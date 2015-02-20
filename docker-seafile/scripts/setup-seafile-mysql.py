@@ -1215,14 +1215,14 @@ def main():
     
     if os.environ.get('EXISTING_DB') == 'true':
         db_config = ExistingDBConfigurator()
-        db_config.mysql_host = os.environ.get('MYSQL_HOST')
-        db_config.mysql_port = int(os.environ.get('MYSQL_PORT'))
+        db_config.mysql_host = os.environ.get('MYSQL_CONTAINER_PORT_3306_TCP_ADDR')
+        db_config.mysql_port = int(os.environ.get('MYSQL_CONTAINER_PORT_3306_TCP_PORT'))
         db_config.seafile_mysql_password = os.getenv('MYSQL_PASSWORD')
 
     else:
         db_config = NewDBConfigurator()
-        db_config.mysql_host = os.environ.get('MYSQL_HOST')
-        db_config.mysql_port = int(os.environ.get('MYSQL_PORT'))
+        db_config.mysql_host = os.environ.get('MYSQL_CONTAINER_PORT_3306_TCP_ADDR')
+        db_config.mysql_port = int(os.environ.get('MYSQL_CONTAINER_PORT_3306_TCP_PORT'))
         db_config.root_user = os.getenv('MYSQL_ROOT_USER', 'root')
         db_config.root_password = os.environ.get('MYSQL_ROOT_PASSWORD')
         db_config.root_conn = db_config.check_mysql_user(db_config.root_user, db_config.root_password)

@@ -5,6 +5,7 @@
 ########
 
 [ "${autoconf}" = 'true' ] || exit 0
+[ "${delete_data_dir}" = 'true' -a -n "$SEAFILE_DATA" ] && rm -rf "$SEAFILE_DATA"
 
 
 if [ -d /opt/seafile/ccnet ]
