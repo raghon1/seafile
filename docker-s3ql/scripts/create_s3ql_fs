@@ -4,13 +4,6 @@
 
 umask 0377
 mkdir -p /root/.s3ql
-cat << !! > /root/.s3ql/authinfo2 
-[${S3QL_TYPE}] 
-storage-url: ${S3QL_TYPE}://${S3QL_STORAGE}/${S3QL_STORAGE_CONTAINER}/${S3QL_STORAGE_FS}/
-backend-login: ${S3QL_LOGIN}
-backend-password: ${S3QL_PASSWD}
-fs-passphrase: ${S3QL_FSPASSWD}
-!!
 
 mkdir -p ${S3QL_MOUNT_POINT}
 fsck.s3ql ${S3QL_TYPE}://${S3QL_STORAGE}/${S3QL_STORAGE_CONTAINER}/${S3QL_STORAGE_FS}/

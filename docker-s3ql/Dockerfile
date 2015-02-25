@@ -30,6 +30,8 @@ RUN tar xvj -C /usr/src -f /usr/src/s3ql-${S3QL_VERSION}.tar.bz2
 WORKDIR /usr/src/s3ql-${S3QL_VERSION}
 RUN python3 setup.py build_ext --inplace
 RUN python3 setup.py install
+RUN rm -rf /usr/src/s3ql-${S3QL_VERSION} /usr/src/s3ql-${S3QL_VERSION}.tar.bz2
+RUN apt-get remove -y python-setuptools python3-setuptools python3-dev python3-pip pkg-config gcc
 
 # End S3QL FS
 

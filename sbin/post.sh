@@ -211,14 +211,84 @@ usage() {
 
 init_skydns() {
 	environment=$1
-	docker stop skydns skydock
-	docker rm skydns skydock
-	docker pull crosbymichael/skydns
-	docker run -h skydns -d -p 172.17.42.1:53:53/udp --name skydns crosbymichael/skydns -nameserver 10.0.80.11:53 -domain docker
-	docker pull crosbymichael/skydock
-	docker run -h skydock -d -v /var/run/docker.sock:/docker.sock --name skydock crosbymichael/skydock -ttl 30 -environment $environment -s /docker.sock -domain docker -name skydns
+
+	EMAIL_USE_TLS=True
+	EMAIL_HOST='smtp.sendgrid.net'
+	EMAIL_PORT='587'
+	EMAIL_HOST_USER='emailadm'
+	EMAIL_HOST_PASSWORD='PAssord'
+	DEFAULT_FROM_EMAIL='noreply@cloudwalker.no'
+
+	S3QL_STORAGE=ams01.objectstorage.service.networklayer.com
+	S3QL_API_USER=brukernavn:name
+	S3QL_API_PASSWD=langtpassord
+	S3QL_FSPASSWD=optionalpassword
+	S3QL_MOUNT_POINT=/data
+	S3QL_TYPE=swift
+
+
 	docker run -h nginx -d --name nginx -p 443:443 -p 80:80 -v /opt/seafile/nginx raghon/nginx:latest
-	docker run -h mariadb -d --name mariadb guilhem30/mariadb:latest
+	MYSQL_ROOT_PASSWORD=$(docker run --name mariadb -it raghon/mariadb  | nawk -F= '/^MARIADB_PASS/ {print $2}')
+	docker start mariadb
+
+
+	echo -n EMAIL_USE_TLS = True/False : 
+	read ans_EMAIL_USE_TLS ; [ -n "$ans_EMAIL_USE_TLS" ] && EMAIL_USE_TLS=$ans_EMAIL_USE_TLS
+
+        echo -n EMAIL_HOST = $EMAIL_HOST :
+	read ans_EMAIL_HOST ; [ -n "$ans_EMAIL_HOST" ] && EMAIL_HOST=$ans_EMAIL_HOST
+        echo -n EMAIL_PORT = $EMAIL_PORT :
+	read ans_EMAIL_PORT ; [ -n "$ans_EMAIL_PORT" ] && EMAIL_PORT=$ans_EMAIL_PORT
+        echo -n EMAIL_HOST_USER = $EMAIL_HOST_USER :
+	read ans_EMAIL_HOST_USER ; [ -n "$ans_EMAIL_HOST_USER" ] && EMAIL_HOST_USER=$ans_EMAIL_HOST_USER
+        echo -n EMAIL_HOST_PASSWORD = $EMAIL_HOST_PASSWORD :
+	read ans_EMAIL_HOST_PASSWORD ; [ -n "$ans_EMAIL_HOST_PASSWORD" ] && EMAIL_HOST_PASSWORD=$ans_EMAIL_HOST_PASSWORD
+        echo -n DEFAULT_FROM_EMAIL = $DEFAULT_FROM_EMAIL :
+	read ans_DEFAULT_FROM_EMAIL ; [ -n "$ans_DEFAULT_FROM_EMAIL" ] && DEFAULT_FROM_EMAIL=$ans_DEFAULT_FROM_EMAIL
+
+        echo -n S3QL_STORAGE = $S3QL_STORAGE :
+	read ans_S3QL_STORAGE ; [ -n "$ans_S3QL_STORAGE" ] && S3QL_STORAGE=$ans_S3QL_STORAGE
+        echo -n S3QL_API_USER = $S3QL_API_USER :
+	read ans_S3QL_API_USER ; [ -n "$ans_S3QL_API_USER" ] && S3QL_API_USER=$ans_S3QL_API_USER
+        echo -n S3QL_API_PASSWD = $S3QL_API_PASSWD :
+	read ans_S3QL_API_PASSWD ; [ -n "$ans_S3QL_API_PASSWD" ] && S3QL_API_PASSWD=$ans_S3QL_API_PASSWD
+        echo -n S3QL_FSPASSWD = $S3QL_FSPASSWD :
+	read ans_S3QL_FSPASSWD ; [ -n "$ans_S3QL_FSPASSWD" ] && S3QL_FSPASSWD=$ans_S3QL_FSPASSWD
+        echo -n S3QL_MOUNT_POINT = $S3QL_MOUNT_POINT :
+	read ans_S3QL_MOUNT_POINT ; [ -n "$ans_S3QL_MOUNT_POINT" ] && S3QL_MOUNT_POINT=$ans_S3QL_MOUNT_POINT
+        echo -n S3QL_TYPE = $S3QL_TYPE :
+	read ans_S3QL_TYPE ; [ -n "$ans_S3QL_TYPE" ] && S3QL_TYPE=$ans_S3QL_TYPE
+
+
+	umask 0377
+	cat << MQSQL > /root/.my.cnf
+[client]
+user=root
+password=$MYSQL_ROOT_PASSWORD
+MQSQL
+	cat << CW >/root/.cloudwalker/secret
+EMAIL_USE_TLS="$EMAIL_USE_TLS"
+EMAIL_HOST="$EMAIL_HOST"
+EMAIL_PORT="$EMAIL_PORT"
+EMAIL_HOST_USER="$EMAIL_HOST_USER"
+EMAIL_HOST_PASSWORD="$EMAIL_HOST_PASSWORD"
+DEFAULT_FROM_EMAIL="$DEFAULT_FROM_EMAIL"
+S3QL_STORAGE="$S3QL_STORAGE"
+S3QL_API_USER="$S3QL_API_USER"
+S3QL_API_PASSWD="$S3QL_API_PASSWD"
+S3QL_FSPASSWD="$S3QL_FSPASSWD"
+S3QL_MOUNT_POINT="$S3QL_MOUNT_POINT"
+S3QL_TYPE="$S3QL_TYPE"
+CW
+
+	cat << S3QL > /root/.s3ql/authinfo2
+[swift]
+storage-url: $S3QL_TYPE://
+backend-login: $S3QL_API_USER
+backend-password: $S3QL_API_PASSWD
+fs-passphrase: $S3QL_FSPASSWD
+S3QL
+
 }
 
 init="-d"
