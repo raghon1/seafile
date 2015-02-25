@@ -234,7 +234,7 @@ rebuildFromBckp="false"
 
 OPTIND=1
 
-while getopts "BCD:CDI:PRFSbcdfrq" option; do
+while getopts "BCD:DFI:PRSTbcdfrtq" option; do
     case $option in
 	D) skydns="true" ; environment="$OPTARG" ;;
         r) rm="true"  ;;
@@ -250,6 +250,8 @@ while getopts "BCD:CDI:PRFSbcdfrq" option; do
 	R) rebuildFromBckp="true";;
 	Q) restore="true";;
 	P) mk_mysql_cred;;
+	t) timemachine=true
+	   extra_docker_opts="-p 548";;
         *) usage ;;
     esac
 done
@@ -275,6 +277,7 @@ for server in $* ; do
 		[ "$create" == "true" -a -n "$server" ] && make_s3ql_docker $server
 		exit 0
 	fi
+
 
 	if [ "$backup" == "true" ] ; then
 		backup $server
@@ -337,7 +340,7 @@ for server in $* ; do
 		servername=$server
 		DELETE_DATA_DIR=true
 		make_seafile_docker $servername-data
-		extra_docker_opts="--volumes-from $servername-data"
+		extra_docker_opts="$extra_docker_opts --volumes-from $servername-data"
 		init="-d"
 		AUTOCONF="false"
 		DELETE_DATA_DIR=false
