@@ -1,0 +1,11 @@
+#!/bin/bash
+#
+
+restart=$(find /etc/nginx/sites-available -name \*restart)
+
+if [ -n "${restart}" ] ; then
+        /usr/sbin/nginx -s reload
+        for r in $restart ; do
+                rm -f $r
+        done
+fi
