@@ -88,6 +88,10 @@ COPY scripts/seahub.sh /etc/service/seahub/run
 COPY scripts/seafile-stop.sh /etc/service/seafile/finish
 COPY scripts/seahub-stop.sh /etc/service/seahub/finish
 
+COPY scripts/seafile.crontab /root/seafile.crontab
+
+RUN crontab /root/seafile.crontab
+
 VOLUME /opt/seafile
 EXPOSE 10001 12001 8000 8082
 
