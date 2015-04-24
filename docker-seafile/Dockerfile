@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
 	python-mysqldb 
 
 RUN ulimit -n 30000
-ENV SEAFILE_VERSION 4.0.6
+ENV SEAFILE_VERSION 4.1.2
 
 RUN useradd -d /opt/seafile -m seafile
 WORKDIR /opt/seafile
@@ -87,6 +87,12 @@ COPY scripts/seafile.sh /etc/service/seafile/run
 COPY scripts/seahub.sh /etc/service/seahub/run
 COPY scripts/seafile-stop.sh /etc/service/seafile/finish
 COPY scripts/seahub-stop.sh /etc/service/seahub/finish
+
+COPY scripts/seafile.crontab /root/seafile.crontab
+
+COPY scripts/seafile_custom.tar /root/seafile_custom.tar
+
+RUN crontab /root/seafile.crontab
 
 VOLUME /opt/seafile
 EXPOSE 10001 12001 8000 8082

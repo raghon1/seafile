@@ -1,11 +1,17 @@
 #!/bin/bash
 #
 
+#docker_image="raghon/seafilepro"
 docker_image="raghon/seafile"
 
 
 # Global variables
 
+
+restore_latest=false
+restore_prog=false
+restore_data=false
+restore_sql=false
 
 
 global() {
@@ -20,7 +26,8 @@ global() {
 	CCNET_IP=${fqdn}
 
 	EXISTING_DB=true
-	MYSQL_HOST=$(docker inspect  -f '{{ .NetworkSettings.IPAddress }}' mariadb)
+	MYSQL_IP=$(docker inspect  -f '{{ .NetworkSettings.IPAddress }}' mariadb)
+	MYSQL_HOST=mysql-container
 	MYSQL_ROOT_USER=root
 
 	CCNET_DB_NAME=${fqdn}-ccnet
@@ -46,10 +53,6 @@ global() {
 	EMAIL_HOST_PASSWORD=$EMAIL_HOST_PASSWORD
 	DEFAULT_FROM_EMAIL=$DEFAULT_FROM_EMAIL
 
-	restore_latest=false
-	restore_prog=true
-	restore_data=false
-	restore_sql=false
 }
 
 
@@ -95,6 +98,7 @@ make_seafile_docker() {
 	fi
 	echo $AUTOCONF
 
+	set -x
 	docker run $init \
 	 --name "${server}"  \
 	 ${extra_docker_opts} \
@@ -104,7 +108,7 @@ make_seafile_docker() {
 	 --cap-add mknod \
 	 --cap-add sys_admin \
 	 --device=/dev/fuse \
-	 --link mariadb:mysql-container \
+	 --link mariadb:$MYSQL_HOST \
 	 --volumes-from nginx \
 	 -e fcgi=true \
 	 -e autonginx=true \
@@ -138,23 +142,23 @@ mk_mysql_user() {
 	exists=1
 	while [ "$exists" -eq 1 ] ; do
 		randuser=$(pwgen  --no-capitalize -n1 -B 15)
-		exists=$(mysql -Ns -h$MYSQL_HOST -e "SELECT EXISTS(SELECT 1 FROM mysql.user WHERE user = '$randuser')")
+		exists=$(mysql -Ns -h$MYSQL_IP -e "SELECT EXISTS(SELECT 1 FROM mysql.user WHERE user = '$randuser')")
 	done
 	MYSQL_USER=$randuser
 	MYSQL_PASSWORD=$(pwgen  --no-capitalize -n1 -B 25)
-	mysql -P3306 -h $MYSQL_HOST -e "create user '$MYSQL_USER'@'%' identified by '$MYSQL_PASSWORD';"
+	mysql -P3306 -h $MYSQL_IP -e "create user '$MYSQL_USER'@'%' identified by '$MYSQL_PASSWORD';"
 }
 
 rm_database() {
 	server=$1
-	dbusers=$(mysql -Ns -h $MYSQL_HOST -Dmysql -e "select user from db where db='${fqdn}-ccnet';")
+	dbusers=$(mysql -Ns -h $MYSQL_IP -Dmysql -e "select user from db where db='${fqdn}-ccnet';")
 	for dbuser in $dbusers ; do
-		mysql -h$MYSQL_HOST -Dmysql -e "drop user '${dbuser}'@'%'"
-		mysql -h$MYSQL_HOST -Dmysql -e "drop user '${dbuser}'@'localhost'"
+		mysql -h$MYSQL_IP -Dmysql -e "drop user '${dbuser}'@'%'"
+		mysql -h$MYSQL_IP -Dmysql -e "drop user '${dbuser}'@'localhost'"
 	done
-	mysql -Dmysql -h$MYSQL_HOST -e "drop database \`${fqdn}-seafile\`"
-	mysql -Dmysql -h$MYSQL_HOST -e "drop database \`${fqdn}-seahub\`"
-	mysql -Dmysql -h$MYSQL_HOST -e "drop database \`${fqdn}-ccnet\`"
+	mysql -Dmysql -h$MYSQL_IP -e "drop database \`${fqdn}-seafile\`"
+	mysql -Dmysql -h$MYSQL_IP -e "drop database \`${fqdn}-seahub\`"
+	mysql -Dmysql -h$MYSQL_IP -e "drop database \`${fqdn}-ccnet\`"
 }
 
 mk_mysql_cred() {
@@ -169,11 +173,11 @@ pass="$DBPASSWORD"
 
 create_dbtables() {
 	
-	mysql -P3306 -h $MYSQL_HOST -e "create database \`${fqdn}-ccnet\`;create database \`${fqdn}-seafile\`; create database \`${fqdn}-seahub\`;"
+	mysql -P3306 -h $MYSQL_IP -e "create database \`${fqdn}-ccnet\`;create database \`${fqdn}-seafile\`; create database \`${fqdn}-seahub\`;"
 
-	mysql -P3306 -h $MYSQL_HOST -e "GRANT ALL PRIVILEGES ON \`${fqdn}-ccnet\`.* to \`$MYSQL_USER\`@\`%\`;"
-	mysql -P3306 -h $MYSQL_HOST -e "GRANT ALL PRIVILEGES ON \`${fqdn}-seafile\`.* to \`$MYSQL_USER\`@\`%\`;"
-	mysql -P3306 -h $MYSQL_HOST -e "GRANT ALL PRIVILEGES ON \`${fqdn}-seahub\`.* to \`$MYSQL_USER\`@\`%\`;"
+	mysql -P3306 -h $MYSQL_IP -e "GRANT ALL PRIVILEGES ON \`${fqdn}-ccnet\`.* to \`$MYSQL_USER\`@\`%\`;"
+	mysql -P3306 -h $MYSQL_IP -e "GRANT ALL PRIVILEGES ON \`${fqdn}-seafile\`.* to \`$MYSQL_USER\`@\`%\`;"
+	mysql -P3306 -h $MYSQL_IP -e "GRANT ALL PRIVILEGES ON \`${fqdn}-seahub\`.* to \`$MYSQL_USER\`@\`%\`;"
 }
 
 
@@ -211,14 +215,84 @@ usage() {
 
 init_skydns() {
 	environment=$1
-	docker stop skydns skydock
-	docker rm skydns skydock
-	docker pull crosbymichael/skydns
-	docker run -h skydns -d -p 172.17.42.1:53:53/udp --name skydns crosbymichael/skydns -nameserver 10.0.80.11:53 -domain docker
-	docker pull crosbymichael/skydock
-	docker run -h skydock -d -v /var/run/docker.sock:/docker.sock --name skydock crosbymichael/skydock -ttl 30 -environment $environment -s /docker.sock -domain docker -name skydns
-	docker run -h nginx -d --name nginx -p 443:443 -p 80:80 -v /opt/seafile/nginx raghon/nginx:latest
-	docker run -h mariadb -d --name mariadb guilhem30/mariadb:latest
+
+	EMAIL_USE_TLS=True
+	EMAIL_HOST='smtp.sendgrid.net'
+	EMAIL_PORT='587'
+	EMAIL_HOST_USER='emailadm'
+	EMAIL_HOST_PASSWORD='PAssord'
+	DEFAULT_FROM_EMAIL='noreply@cloudwalker.no'
+
+	S3QL_STORAGE=ams01.objectstorage.service.networklayer.com
+	S3QL_API_USER=brukernavn:name
+	S3QL_API_PASSWD=langtpassord
+	S3QL_FSPASSWD=optionalpassword
+	S3QL_MOUNT_POINT=/data
+	S3QL_TYPE=swift
+
+
+	docker run -h nginx -d --restart always --name nginx -p 443:443 -p 80:80 -v /opt/seafile/nginx raghon/nginx:latest
+	MYSQL_ROOT_PASSWORD=$(docker run --name mariadb -it --restart always raghon/mariadb  | nawk -F= '/^MARIADB_PASS/ {print $2}')
+	docker start mariadb
+
+
+	echo -n EMAIL_USE_TLS = True/False : 
+	read ans_EMAIL_USE_TLS ; [ -n "$ans_EMAIL_USE_TLS" ] && EMAIL_USE_TLS=$ans_EMAIL_USE_TLS
+
+        echo -n EMAIL_HOST = $EMAIL_HOST :
+	read ans_EMAIL_HOST ; [ -n "$ans_EMAIL_HOST" ] && EMAIL_HOST=$ans_EMAIL_HOST
+        echo -n EMAIL_PORT = $EMAIL_PORT :
+	read ans_EMAIL_PORT ; [ -n "$ans_EMAIL_PORT" ] && EMAIL_PORT=$ans_EMAIL_PORT
+        echo -n EMAIL_HOST_USER = $EMAIL_HOST_USER :
+	read ans_EMAIL_HOST_USER ; [ -n "$ans_EMAIL_HOST_USER" ] && EMAIL_HOST_USER=$ans_EMAIL_HOST_USER
+        echo -n EMAIL_HOST_PASSWORD = $EMAIL_HOST_PASSWORD :
+	read ans_EMAIL_HOST_PASSWORD ; [ -n "$ans_EMAIL_HOST_PASSWORD" ] && EMAIL_HOST_PASSWORD=$ans_EMAIL_HOST_PASSWORD
+        echo -n DEFAULT_FROM_EMAIL = $DEFAULT_FROM_EMAIL :
+	read ans_DEFAULT_FROM_EMAIL ; [ -n "$ans_DEFAULT_FROM_EMAIL" ] && DEFAULT_FROM_EMAIL=$ans_DEFAULT_FROM_EMAIL
+
+        echo -n S3QL_STORAGE = $S3QL_STORAGE :
+	read ans_S3QL_STORAGE ; [ -n "$ans_S3QL_STORAGE" ] && S3QL_STORAGE=$ans_S3QL_STORAGE
+        echo -n S3QL_API_USER = $S3QL_API_USER :
+	read ans_S3QL_API_USER ; [ -n "$ans_S3QL_API_USER" ] && S3QL_API_USER=$ans_S3QL_API_USER
+        echo -n S3QL_API_PASSWD = $S3QL_API_PASSWD :
+	read ans_S3QL_API_PASSWD ; [ -n "$ans_S3QL_API_PASSWD" ] && S3QL_API_PASSWD=$ans_S3QL_API_PASSWD
+        echo -n S3QL_FSPASSWD = $S3QL_FSPASSWD :
+	read ans_S3QL_FSPASSWD ; [ -n "$ans_S3QL_FSPASSWD" ] && S3QL_FSPASSWD=$ans_S3QL_FSPASSWD
+        echo -n S3QL_MOUNT_POINT = $S3QL_MOUNT_POINT :
+	read ans_S3QL_MOUNT_POINT ; [ -n "$ans_S3QL_MOUNT_POINT" ] && S3QL_MOUNT_POINT=$ans_S3QL_MOUNT_POINT
+        echo -n S3QL_TYPE = $S3QL_TYPE :
+	read ans_S3QL_TYPE ; [ -n "$ans_S3QL_TYPE" ] && S3QL_TYPE=$ans_S3QL_TYPE
+
+
+	umask 0377
+	cat << MQSQL > /root/.my.cnf
+[client]
+user=root
+password=$MYSQL_ROOT_PASSWORD
+MQSQL
+	cat << CW >/root/.cloudwalker/secret
+EMAIL_USE_TLS="$EMAIL_USE_TLS"
+EMAIL_HOST="$EMAIL_HOST"
+EMAIL_PORT="$EMAIL_PORT"
+EMAIL_HOST_USER="$EMAIL_HOST_USER"
+EMAIL_HOST_PASSWORD="$EMAIL_HOST_PASSWORD"
+DEFAULT_FROM_EMAIL="$DEFAULT_FROM_EMAIL"
+S3QL_STORAGE="$S3QL_STORAGE"
+S3QL_API_USER="$S3QL_API_USER"
+S3QL_API_PASSWD="$S3QL_API_PASSWD"
+S3QL_FSPASSWD="$S3QL_FSPASSWD"
+S3QL_MOUNT_POINT="$S3QL_MOUNT_POINT"
+S3QL_TYPE="$S3QL_TYPE"
+CW
+
+	cat << S3QL > /root/.s3ql/authinfo2
+[swift]
+storage-url: $S3QL_TYPE://
+backend-login: $S3QL_API_USER
+backend-password: $S3QL_API_PASSWD
+fs-passphrase: $S3QL_FSPASSWD
+S3QL
+
 }
 
 init="-d"
@@ -230,32 +304,48 @@ skydns="false"
 restore="false"
 backup="false"
 rebuildFromBckp="false"
+modify="false"
+fsck="false"
+upgrade="false"
 
 
 OPTIND=1
 
-while getopts "BCD:DFI:PRSTbcdfrtq" option; do
+while getopts "BCD:DFI:PRSTUbcdfmo:rqt" option; do
     case $option in
+	B) backup_disaster="true";;
+	C) console="true" ;;
 	D) skydns="true" ; environment="$OPTARG" ;;
+	F) s3ql_clear="true" ;;
+        I) docker_image="$OPTARG";;
+	P) mk_mysql_cred;;
+	Q) restore="true";;
+	R) rebuildFromBckp="true";;
+	U) upgrade="true";;
         r) rm="true"  ;;
         c) create="true"  ;;
-        I) docker_image="$OPTARG";;
         S) init="--rm -it" ; shell="bash -o vi" ;;
         d) init="--rm -it"  ;;
-        f) init="--rm -it" ; shell="/bin/sh -c " ; extra="/etc/my_init.d/01_create_s3ql_fs && umount.s3ql --debug /data" ;;
-	C) console="true" ;;
-	F) s3ql_clear="true" ;;
-	B) backup_disaster="true";;
+        #f) init="--rm -it" ; shell="/bin/sh -c " ; extra="/etc/my_init.d/01_create_s3ql_fs && umount.s3ql --debug /data" ;;
+        f) fsck=true;;
 	b) backup="true";;
-	R) rebuildFromBckp="true";;
-	Q) restore="true";;
-	P) mk_mysql_cred;;
+	m) modify="true";;
 	t) timemachine=true
 	   extra_docker_opts="-p 548";;
+	o) echo $OPTARG;
+	   case "$OPTARG" in
+		sql) restore_sql="true";;
+		prog) restore_prog="true";;
+		data) restore_data="true";;
+		latest) restore_latest="true";;
+	   esac
+   	   ;;
         *) usage ;;
     esac
 done
 shift $((OPTIND - 1))
+
+echo $restore_sql $restore_latest $restore_prog $restore_data
 
 [ "$skydns" == "true" ] && (init_skydns $environment )
 
@@ -268,6 +358,14 @@ for server in $* ; do
 		exec docker exec -it $server bash -o vi
 	fi
 
+	if [ "$fsck" == "true" ] ; then  
+        	init="--rm -it"
+		shell="/bin/sh -c "
+		extra="/etc/my_init.d/01_create_s3ql_fs && umount.s3ql --debug /data"
+		[ "$create" == "true" -a -n "$server" -a "$debug" == "true" ] && make_s3ql_docker $server debug
+		[ "$create" == "true" -a -n "$server" ] && make_s3ql_docker $server
+		exit 0
+	fi
 	if [ "$s3ql_clear" == "true" ] ; then  
 		init="--rm -it" 
 		shell="/bin/sh -c " 
@@ -309,26 +407,25 @@ for server in $* ; do
 	fi
 	if [ "$rebuildFromBckp" == "true" ] ; then
 		#	docker_image=raghon/s3ql
-		S3QL_STORAGE_FS=$server
+		S3QL_STORAGE_FS=$fqdn
 		init="-it"
 		if [ "$debug" == "true" ] ; then 
 			init="--rm -it" 
 		fi
 
 		shell="/bin/sh -c " 
-		restore_latest=true
-		restore_data=false
-		
-		orig_server=$server
-		[ "$create" == "true" -a -n "$server" ] && make_s3ql_docker $server-data
+		extra="/etc/my_init.d/02_restore.sh"
+
+		servername=$server
+		[ "$create" == "true" -a -n "$server" ] && make_seafile_docker $server-data
 		unset extra
 		unset shell
 		AUTOCONF="false"
 
 		restore_latest=false
-	 	extra_docker_opts="--volumes-from $orig_server-data"
+		extra_docker_opts="$extra_docker_opts --restart=always --volumes-from $servername-data"
 		init="-d" 
-		make_seafile_docker $orig_server
+		make_seafile_docker $servername
 		exit 0
 	fi
 	
@@ -338,9 +435,24 @@ for server in $* ; do
 	if [ "$create" == "true" -a -n "$server" ] ; then
 		init="-it"
 		servername=$server
-		DELETE_DATA_DIR=true
 		make_seafile_docker $servername-data
-		extra_docker_opts="$extra_docker_opts --volumes-from $servername-data"
+		extra_docker_opts="$extra_docker_opts --restart=always --volumes-from $servername-data"
+		init="-d"
+		AUTOCONF="false"
+		DELETE_DATA_DIR=false
+		make_seafile_docker $servername
+	fi
+	if [ "$modify" == "true"  -o  "$upgrade" == "true" ] ; then
+		# Get environment variables from running docker
+
+		mkdir -p /data/$server
+		docker exec -i $server env | egrep 'CCNET|MYSQL|SEA|restore|S3QL|fcgi' > /data/$server/env
+		. /data/$server/env
+
+		docker stop $server
+		docker rename $server $server-old
+		servername=$server
+		extra_docker_opts="$extra_docker_opts --restart=always --volumes-from $servername-data"
 		init="-d"
 		AUTOCONF="false"
 		DELETE_DATA_DIR=false

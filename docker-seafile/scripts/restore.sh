@@ -32,10 +32,24 @@ restore() {
 
 
 		if [ "$restore_sql" == "true" ] ; then
-		for db in $dbs; do
-			db=$CCNET_IP-$db
-			mysql -h $MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASSWORD $db < ${bkpdir}/${sql}/$db.sql
-		done
+			for db in $dbs; do
+				db=$CCNET_IP-$db
+				mysql -h $MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASSWORD $db < ${bkpdir}/${sql}/$db.sql
+			done
+		fi
+		sed -i \
+                        -e "s/'USER':.*/'USER': '${MYSQL_USER}',/" \
+                        -e "s/'PASSWORD':.*/'PASSWORD': '${MYSQL_PASSWORD}',/" \
+                        /opt/seafile/seahub_settings.py
+                sed -i \
+                        -e "s/^USER = .*/USER = ${MYSQL_USER}/" \
+                        -e "s/^PASSWD = .*/PASSWD = ${MYSQL_PASSWORD}/" \
+                        /opt/seafile/ccnet/ccnet.conf
+                sed -i \
+                        -e "s/^user = .*/user = ${MYSQL_USER}/" \
+                        -e "s/^password = .*/password = ${MYSQL_PASSWORD}/" \
+                        /data/seafile-data/seafile.conf
+		umount.s3ql /data
 
 	else
 		echo NOT ABLE TO RESTORE

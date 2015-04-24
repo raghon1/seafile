@@ -1,0 +1,1 @@
+0 0 * * * /etc/my_init.d/02_backup.sh
