@@ -13,6 +13,8 @@ restore_prog=false
 restore_data=false
 restore_sql=false
 
+dir=$(cd $(dirname $0) ; pwd)
+
 
 global() {
 	# get api credentials from config file
@@ -20,6 +22,13 @@ global() {
 	domain=${1#*.}
 	[ "$domain" == "$server" ] && domain=cloudwalker.biz
 	fqdn=${server}.${domain}
+	
+	if [ $domain != "cloudwalker.biz" ] ; then
+		case $server in
+			*-data) server_name=${fqdn}-data;;
+			*) server_name=${fqdn};;
+		esac
+	fi
 
 	. /root/.cloudwalker/secret
 	AUTOCONF=true
@@ -39,8 +48,14 @@ global() {
 	DELETE_DATA_DIR=false
 
 	S3QL_STORAGE=ams01.objectstorage.service.networklayer.com
-	S3QL_STORAGE_CONTAINER=fs
-	S3QL_STORAGE_FS=${fqdn}
+	# finnes container fra før ? 
+	if [ -z "$S3QL_STORAGE_CONTAINER" ] ; then
+		$dir/addContainer.py -a CUSTOMER-$fqdn
+		S3QL_STORAGE_CONTAINER=CUSTOMER-$fqdn
+		S3QL_STORAGE_FS=${server}-seafile.s3ql
+	else
+		S3QL_STORAGE_FS=${fqdn}
+	fi
 	S3QL_COMPRESS=zlib
 	S3QL_FSPASSWD=optionalpassword
 	S3QL_MOUNT_POINT=/data
@@ -96,9 +111,9 @@ make_seafile_docker() {
 		mk_mysql_user
 		create_dbtables
 	fi
-	echo $AUTOCONF
 
-	set -x
+	echo $server $server_name
+
 	docker run $init \
 	 --name "${server}"  \
 	 ${extra_docker_opts} \
@@ -135,6 +150,10 @@ make_seafile_docker() {
 	 -e restore_data=$restore_data \
 	 -e restore_sql=$restore_sql \
 	$docker_image $shell $([ -n "$extra" ] && echo \"$extra\")
+
+	if [ $? -ne 0 ] ; then
+		echo $?
+	fi
 }
 
 mk_mysql_user() {
@@ -174,6 +193,7 @@ pass="$DBPASSWORD"
 create_dbtables() {
 	
 	mysql -P3306 -h $MYSQL_IP -e "create database \`${fqdn}-ccnet\`;create database \`${fqdn}-seafile\`; create database \`${fqdn}-seahub\`;"
+	[ $? -ne 0 ] && exit 1
 
 	mysql -P3306 -h $MYSQL_IP -e "GRANT ALL PRIVILEGES ON \`${fqdn}-ccnet\`.* to \`$MYSQL_USER\`@\`%\`;"
 	mysql -P3306 -h $MYSQL_IP -e "GRANT ALL PRIVILEGES ON \`${fqdn}-seafile\`.* to \`$MYSQL_USER\`@\`%\`;"
@@ -307,11 +327,12 @@ rebuildFromBckp="false"
 modify="false"
 fsck="false"
 upgrade="false"
+list_docers="false"
 
 
 OPTIND=1
 
-while getopts "BCD:DFI:PRSTUbcdfmo:rqt" option; do
+while getopts "BCD:DFI:PRSTUbcdflmo:rqt" option; do
     case $option in
 	B) backup_disaster="true";;
 	C) console="true" ;;
@@ -321,31 +342,36 @@ while getopts "BCD:DFI:PRSTUbcdfmo:rqt" option; do
 	P) mk_mysql_cred;;
 	Q) restore="true";;
 	R) rebuildFromBckp="true";;
-	U) upgrade="true";;
-        r) rm="true"  ;;
-        c) create="true"  ;;
         S) init="--rm -it" ; shell="bash -o vi" ;;
+	U) upgrade="true";;
+	b) backup="true";;
+        c) create="true"  ;;
         d) init="--rm -it"  ;;
         #f) init="--rm -it" ; shell="/bin/sh -c " ; extra="/etc/my_init.d/01_create_s3ql_fs && umount.s3ql --debug /data" ;;
         f) fsck=true;;
-	b) backup="true";;
+	l) list_docers=true;;
 	m) modify="true";;
-	t) timemachine=true
-	   extra_docker_opts="-p 548";;
 	o) echo $OPTARG;
 	   case "$OPTARG" in
 		sql) restore_sql="true";;
 		prog) restore_prog="true";;
 		data) restore_data="true";;
 		latest) restore_latest="true";;
+		object=*) S3QL_STORAGE_CONTAINER=${OPTARG##*=};;
 	   esac
    	   ;;
+        r) rm="true"  ;;
+	t) timemachine=true
+	   extra_docker_opts="-p 548";;
         *) usage ;;
     esac
 done
 shift $((OPTIND - 1))
 
-echo $restore_sql $restore_latest $restore_prog $restore_data
+if [ "$list_docers" == "true" ] ; then
+	docker ps --no-trunc=false | awk 'BEGIN {printf "\t%-20s %s\n", "NAME","IMAGE"} !/NAMES|ID/ {printf "\t%-20s %s\n", $NF,$2}'
+	exit 0
+fi
 
 [ "$skydns" == "true" ] && (init_skydns $environment )
 
@@ -355,8 +381,9 @@ echo $restore_sql $restore_latest $restore_prog $restore_data
 for server in $* ; do
 	global $server
 	if [ "$console" == "true" ] ; then  
-		exec docker exec -it $server bash -o vi
+		exec docker exec -it $server_name bash -o vi
 	fi
+
 
 	if [ "$fsck" == "true" ] ; then  
         	init="--rm -it"
@@ -430,17 +457,17 @@ for server in $* ; do
 	fi
 	
 
-	[ "$rm" == "true" -a -n "$server" ] && (rm_docker $server ; rm_database $server)
+	[ "$rm" == "true" -a -n "$server" ] && (rm_docker $server_name ; rm_database $server_name)
 	[ "$create" == "true" -a -n "$server" -a "$debug" == "true" ] && make_seafile_docker $server debug
 	if [ "$create" == "true" -a -n "$server" ] ; then
 		init="-it"
-		servername=$server
-		make_seafile_docker $servername-data
-		extra_docker_opts="$extra_docker_opts --restart=always --volumes-from $servername-data"
+		#servername=$server
+		make_seafile_docker $server_name-data
+		extra_docker_opts="$extra_docker_opts --restart=always --volumes-from ${server_name}-data"
 		init="-d"
 		AUTOCONF="false"
 		DELETE_DATA_DIR=false
-		make_seafile_docker $servername
+		make_seafile_docker $server_name
 	fi
 	if [ "$modify" == "true"  -o  "$upgrade" == "true" ] ; then
 		# Get environment variables from running docker

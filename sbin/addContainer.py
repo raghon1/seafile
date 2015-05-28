@@ -7,6 +7,7 @@ import sys
 import getopt
 
 
+
 class storage:
 	def __init__(self):
 		with open("/root/.cloudwalker/secret", "r") as ins:
@@ -36,13 +37,17 @@ class storage:
 				readme.create()
 				readme.send('Object storage opprettet for '+customer+' som benyttes til seafile')
 		else :
-			print (customer+' finnes')
+			sys.exit(1)
 
-	def delCustomer(self, customer) :
+	def delCustomer(self, customer, force) :
 		storage=self.auth
 		container = storage.container(customer)
 		if container.exists() == True :
-			warning=raw_input("Type \"delete\" to verify that you want to delete "+container.name+": ")
+			if (force == True) :
+				warning="delete"
+			else :
+				warning=raw_input("Type \"delete\" to verify that you want to delete "+container.name+": ")
+
 			if warning == "delete" : 
 				container.delete_all_objects()
 				container.delete()
@@ -70,7 +75,7 @@ def main():
 	if len(sys.argv) > 1 :
 		kunde=sys.argv[1]
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], "a:d:hl", ["help", "add=", "delete=", "list"])
+		opts, args = getopt.getopt(sys.argv[1:], "a:d:fhl", ["help", "add=", "delete=", "list", "force"])
 	except getopt.GetoptError as err:
 		# print help information and exit:
 		print(err) 
@@ -78,6 +83,7 @@ def main():
 		sys.exit(2)
 	output = None
 	verbose = False
+	force = False
 	for o, a in opts:
 		if o in ("-h", "--help"):
 		    usage()
@@ -90,15 +96,20 @@ def main():
 		    action='delete'
 		elif o in ("-l", "--list"):
 		    action='list'
+		elif o in ("-f", "--force"):
+		    force=True
 		else:
 		    assert False, "unhandled option"
 		# ...
 	
 	slo=storage()
+	if force == True :
+		print ("Forching delete")
+
 	if action == 'add' :
 		slo.addCustomer(customer)
 	elif action == 'delete' :
-		slo.delCustomer(customer)
+		slo.delCustomer(customer, force)
 	elif action == 'list' :
 		slo.listCustomers()
 
