@@ -1,4 +1,4 @@
-FROM		raghon/s3ql
+FROM		raghon1/s3ql
 MAINTAINER 	Ragnar Hongset <raghon@raghon.no>
 
 

@@ -1,7 +1,7 @@
 FROM		phusion/baseimage
 MAINTAINER	Ragnar Hongset  <ragnar.hongset@raghon.no>
 
-ENV S3QL_VERSION 2.12
+ENV S3QL_VERSION 2.13
 
 # Add S3QL FS
 
