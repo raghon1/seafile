@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
 	python-mysqldb 
 
 RUN ulimit -n 30000
-ENV SEAFILE_VERSION 4.1.2
+ENV SEAFILE_VERSION 4.2.1
 
 RUN useradd -d /opt/seafile -m seafile
 WORKDIR /opt/seafile
