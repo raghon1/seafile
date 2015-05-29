@@ -1,0 +1,62 @@
+#!/bin/bash
+#
+
+# curl http://10.0.1.194/ks/install-esx | sh
+# curl http://10.127.246.4/ks/install-esx | sh
+
+apt-get install -y syslinux curl mkisofs
+mkdir -p /iso
+[ ! -f /iso/esxi-v6.iso ] && curl -o /iso/esxi-v6.iso http://10.127.246.4/ks/esxi-v6.iso
+mount -o loop /iso/esxi-v6.iso /mnt
+mkdir /tmp/iso
+cp -rp /mnt/* /tmp/iso
+
+for i in $(ifconfig  bond0 | grep "inet addr:") ; do
+        case $i in
+                addr*) back_ip=${i##*:} ;;
+                Mask*) back_netmask=${i##*:} ;;
+        esac
+done
+for i in $(ifconfig  bond1 | grep "inet addr:") ; do
+        case $i in
+                addr*) pub_ip=${i##*:} ;;
+                Mask*) pub_netmask=${i##*:} ;;
+        esac
+done
+pub_gw=$(awk '/gateway/ {print $2}' /etc/network/interfaces)
+back_gw=$(awk '/gw/ {print $7}' /etc/network/interfaces)
+ks=http://10.127.246.4/ks/kickstart.cfg
+nameserver=$(awk '/nameserver/ {if (dns == "") {dns=$2} } END {print dns}' /etc/resolv.conf)
+
+
+sed -i \
+        -e "s;^kernelopt=runweasel;kernelopt=ks=$ks nameserver=$nameserver ip=$back_ip netmask=$back_netmask gateway=$back_gw pub_ip=$pub_ip pub_netmask=$pub_netmask pub_gateway=$pub_gw hostname=$(hostname -f);" \
+        /tmp/iso/boot.cfg
+
+
+mkisofs -relaxed-filenames -J -R  -o /iso/esxi-v6-custom.iso -b isolinux.bin -c boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table /tmp/iso
+umount /mnt
+rm -rf /tmp/iso
+
+cp /etc/grub.d/40_custom /etc/grub.d/40_esxi
+cat << FF >> /etc/grub.d/40_esxi
+menuentry 'install-esxi' {
+    recordfail
+    load_video
+    gfxmode $linux_gfx_mode
+    insmod gzio
+    insmod part_msdos
+    insmod ext2
+    set root='hd0,msdos6'
+    linux16 /usr/lib/syslinux/memdisk iso
+    initrd16 /iso/esxi-v6-custom.iso
+}
+FF
+
+if [ -f /etc/default/grub ] ; then
+        sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=install-esxi/' /etc/default/grub
+else
+        echo GRUB_DEFAULT=install-esxi > /etc/default/grub
+fi
+
+grub-mkconfig  -o /boot/grub/grub.cfg
