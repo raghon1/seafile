@@ -1,8 +1,8 @@
 #!/bin/bash
 #
 
-#docker_image="raghon/seafilepro"
-docker_image="raghon/seafile"
+#docker_image="raghon1/seafilepro"
+docker_image="raghon1/seafile"
 
 
 # Global variables
@@ -251,8 +251,8 @@ init_skydns() {
 	S3QL_TYPE=swift
 
 
-	docker run -h nginx -d --restart always --name nginx -p 443:443 -p 80:80 -v /opt/seafile/nginx raghon/nginx:latest
-	MYSQL_ROOT_PASSWORD=$(docker run --name mariadb -it --restart always raghon/mariadb  | nawk -F= '/^MARIADB_PASS/ {print $2}')
+	docker run -h nginx -d --restart always --name nginx -p 443:443 -p 80:80 -v /opt/seafile/nginx raghon1/nginx:latest
+	MYSQL_ROOT_PASSWORD=$(docker run --name mariadb -it --restart always raghon1/mariadb  | nawk -F= '/^MARIADB_PASS/ {print $2}')
 	docker start mariadb
 
 
@@ -290,6 +290,8 @@ init_skydns() {
 user=root
 password=$MYSQL_ROOT_PASSWORD
 MQSQL
+
+mkdir -p /root/.cloudwalker /root/.s3ql
 	cat << CW >/root/.cloudwalker/secret
 EMAIL_USE_TLS="$EMAIL_USE_TLS"
 EMAIL_HOST="$EMAIL_HOST"
@@ -428,12 +430,12 @@ for server in $* ; do
 			"
 
 		server=$server-restore
-		docker_image=raghon/s3ql
+		docker_image=raghon1/s3ql
 		[ "$create" == "true" -a -n "$server" ] && make_s3ql_docker $server
 		exit 0
 	fi
 	if [ "$rebuildFromBckp" == "true" ] ; then
-		#	docker_image=raghon/s3ql
+		#	docker_image=raghon1/s3ql
 		S3QL_STORAGE_FS=$fqdn
 		init="-it"
 		if [ "$debug" == "true" ] ; then 
