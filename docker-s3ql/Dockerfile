@@ -1,7 +1,7 @@
 FROM		phusion/baseimage
 MAINTAINER	Ragnar Hongset  <ragnar.hongset@raghon.no>
 
-ENV S3QL_VERSION 2.13
+ENV S3QL_VERSION 2.12
 
 # Add S3QL FS
 
@@ -12,17 +12,28 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
 	apt-get update && \
 	apt-get update && apt-get install -y \
 	software-properties-common \
-	s3ql
+	ca-certificates \
+	python2.7 \
+	python-setuptools \
+	python-simplejson \
+	python-imaging \
+	sqlite3 \
+	python-mysqldb \
+	fuse \
+	mariadb-client \
+	python3 python3-setuptools python3-dev python3-pip pkg-config \
+	sqlite3 libsqlite3-dev \
+	python3-apsw python3.4-llfuse # s3ql
 
-#RUN pip3 install defusedxml dugong requests pycrypto
+RUN pip3 install defusedxml dugong requests pycrypto
 
 # This module doesn't exist in ubuntu:14:04 default repo. Get it from bitbucket.
-#RUN curl -L -o /usr/src/s3ql-${S3QL_VERSION}.tar.bz2 https://bitbucket.org/nikratio/s3ql/downloads/s3ql-${S3QL_VERSION}.tar.bz2
-#RUN tar xvj -C /usr/src -f /usr/src/s3ql-${S3QL_VERSION}.tar.bz2
-#WORKDIR /usr/src/s3ql-${S3QL_VERSION}
-#RUN python3 setup.py build_ext --inplace
-#RUN python3 setup.py install
-#RUN rm -rf /usr/src/s3ql-${S3QL_VERSION} /usr/src/s3ql-${S3QL_VERSION}.tar.bz2
+RUN curl -L -o /usr/src/s3ql-${S3QL_VERSION}.tar.bz2 https://bitbucket.org/nikratio/s3ql/downloads/s3ql-${S3QL_VERSION}.tar.bz2
+RUN tar xvj -C /usr/src -f /usr/src/s3ql-${S3QL_VERSION}.tar.bz2
+WORKDIR /usr/src/s3ql-${S3QL_VERSION}
+RUN python3 setup.py build_ext --inplace
+RUN python3 setup.py install
+RUN rm -rf /usr/src/s3ql-${S3QL_VERSION} /usr/src/s3ql-${S3QL_VERSION}.tar.bz2
 RUN apt-get remove -y python-setuptools python3-setuptools python3-dev python3-pip pkg-config gcc
 
 # End S3QL FS

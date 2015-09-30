@@ -15,11 +15,12 @@ RUN apt-get update && apt-get install -y \
 	python-mysqldb 
 
 RUN ulimit -n 30000
-ENV SEAFILE_VERSION 4.2.2
+ENV SEAFILE_VERSION 4.3.2
 
 RUN useradd -d /opt/seafile -m seafile
 WORKDIR /opt/seafile
-RUN curl -L -O https://bitbucket.org/haiwen/seafile/downloads/seafile-server_${SEAFILE_VERSION}_x86-64.tar.gz
+#https://bintray.com/artifact/download/seafile-org/seafile/seafile-server_4.3.2_x86-64.tar.gz
+RUN curl -L -O https://bintray.com/artifact/download/seafile-org/seafile/seafile-server_${SEAFILE_VERSION}_x86-64.tar.gz
 RUN tar xzf seafile-server_${SEAFILE_VERSION}_x86-64.tar.gz
 RUN rm -f seafile-server_${SEAFILE_VERSION}_x86-64.tar.gz
 RUN mkdir -p logs

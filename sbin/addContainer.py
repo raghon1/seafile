@@ -9,7 +9,7 @@ import getopt
 
 
 class storage:
-	def __init__(self):
+	def __init__(self, dchost):
 		with open("/root/.cloudwalker/secret", "r") as ins:
 			for line in ins:
 				line=line.replace("\"","")
@@ -22,6 +22,10 @@ class storage:
 
 				if (l[0].strip() == 'S3QL_STORAGE'):
 					dc=l[1].strip()
+					hostname,_,fqdn=dc.partition('.')
+
+		if (dchost) :
+			dc=dchost+"."+fqdn
 
 		self.auth = object_storage.get_client(username, api_key, auth_url='https://'+dc+'/auth/v1.0/')
 
@@ -75,7 +79,7 @@ def main():
 	if len(sys.argv) > 1 :
 		kunde=sys.argv[1]
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], "a:d:fhl", ["help", "add=", "delete=", "list", "force"])
+		opts, args = getopt.getopt(sys.argv[1:], "a:d:D:fhl", ["help", "add=", "delete=", "list", "datacenter", "force"])
 	except getopt.GetoptError as err:
 		# print help information and exit:
 		print(err) 
@@ -84,6 +88,7 @@ def main():
 	output = None
 	verbose = False
 	force = False
+	dchost = ''
 	for o, a in opts:
 		if o in ("-h", "--help"):
 		    usage()
@@ -96,13 +101,15 @@ def main():
 		    action='delete'
 		elif o in ("-l", "--list"):
 		    action='list'
+		elif o in ("-D", "--datacenter"):
+		    dchost=a
 		elif o in ("-f", "--force"):
 		    force=True
 		else:
 		    assert False, "unhandled option"
 		# ...
 	
-	slo=storage()
+	slo=storage(dchost)
 	if force == True :
 		print ("Forching delete")
 

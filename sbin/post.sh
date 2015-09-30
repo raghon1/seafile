@@ -114,7 +114,7 @@ make_seafile_docker() {
 
 	echo $server $server_name
 
-	docker run $init \
+	echo docker run $init \
 	 --name "${server}"  \
 	 ${extra_docker_opts} \
 	 -v /root/.s3ql/authinfo2:/root/.s3ql/authinfo2:ro \
@@ -123,6 +123,7 @@ make_seafile_docker() {
 	 --cap-add mknod \
 	 --cap-add sys_admin \
 	 --device=/dev/fuse \
+	 --privileged \
 	 --link mariadb:$MYSQL_HOST \
 	 --volumes-from nginx \
 	 -e fcgi=true \
