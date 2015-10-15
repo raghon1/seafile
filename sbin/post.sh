@@ -18,17 +18,21 @@ dir=$(cd $(dirname $0) ; pwd)
 
 global() {
 	# get api credentials from config file
-	server=${1%%.*}
-	domain=${1#*.}
-	[ "$domain" == "$server" ] && domain=cloudwalker.biz
+	# test if we got a FQDN:
+	server=$(echo $1 | cut -f1 -d\.)
+	if echo $1 | fgrep '.' > /dev/null ; then
+		domain=$(echo $1 | cut -f2- -d\.)
+	else 
+		domain=cloudwalker.biz
+	fi
 	fqdn=${server}.${domain}
 	
-	if [ $domain != "cloudwalker.biz" ] ; then
+	#if [ $domain != "cloudwalker.biz" ] ; then
 		case $server in
 			*-data) server_name=${fqdn}-data;;
 			*) server_name=${fqdn};;
 		esac
-	fi
+	#fi
 
 	. /root/.cloudwalker/secret
 	AUTOCONF=true
@@ -51,6 +55,7 @@ global() {
 	# finnes container fra før ? 
 	if [ -z "$S3QL_STORAGE_CONTAINER" ] ; then
 		$dir/addContainer.py -a CUSTOMER-$fqdn
+		$dir/addContainer.py -a CUSTOMER-$fqdn -D $(echo $S3QL_BACKUP | cut -f1 -d\.)
 		S3QL_STORAGE_CONTAINER=CUSTOMER-$fqdn
 		S3QL_STORAGE_FS=${server}-seafile.s3ql
 	else
@@ -112,9 +117,7 @@ make_seafile_docker() {
 		create_dbtables
 	fi
 
-	echo $server $server_name
-
-	echo docker run $init \
+	docker run $init \
 	 --name "${server}"  \
 	 ${extra_docker_opts} \
 	 -v /root/.s3ql/authinfo2:/root/.s3ql/authinfo2:ro \
@@ -128,7 +131,7 @@ make_seafile_docker() {
 	 --volumes-from nginx \
 	 -e fcgi=true \
 	 -e autonginx=true \
-	 -e autoconf=$AUTOCONF \
+	 -e autoconf=false \
 	 -e delete_data_dir=$DELETE_DATA_DIR \
 	 -e "CCNET_IP=$CCNET_IP"\
 	 -e "EXISTING_DB=$EXISTING_DB" \
@@ -141,6 +144,7 @@ make_seafile_docker() {
 	 -e "SEAHUB_ADMIN_EMAIL=$SEAHUB_ADMIN_EMAIL" \
 	 -e "SEAFILE_IP=$SEAFILE_IP" \
 	 -e S3QL_STORAGE=$S3QL_STORAGE \
+	 -e S3QL_BACKUP=$S3QL_BACKUP \
 	 -e S3QL_STORAGE_CONTAINER=$S3QL_STORAGE_CONTAINER \
 	 -e S3QL_STORAGE_FS=$S3QL_STORAGE_FS \
 	 -e S3QL_COMPRESS=$S3QL_COMPRESS \
@@ -155,6 +159,7 @@ make_seafile_docker() {
 	if [ $? -ne 0 ] ; then
 		echo $?
 	fi
+	docker exec -i nginx nginx -s reload
 }
 
 mk_mysql_user() {
@@ -173,8 +178,8 @@ rm_database() {
 	server=$1
 	dbusers=$(mysql -Ns -h $MYSQL_IP -Dmysql -e "select user from db where db='${fqdn}-ccnet';")
 	for dbuser in $dbusers ; do
+		mysql -h$MYSQL_IP -Dmysql -e "drop user '${dbuser}'"
 		mysql -h$MYSQL_IP -Dmysql -e "drop user '${dbuser}'@'%'"
-		mysql -h$MYSQL_IP -Dmysql -e "drop user '${dbuser}'@'localhost'"
 	done
 	mysql -Dmysql -h$MYSQL_IP -e "drop database \`${fqdn}-seafile\`"
 	mysql -Dmysql -h$MYSQL_IP -e "drop database \`${fqdn}-seahub\`"
@@ -194,7 +199,7 @@ pass="$DBPASSWORD"
 create_dbtables() {
 	
 	mysql -P3306 -h $MYSQL_IP -e "create database \`${fqdn}-ccnet\`;create database \`${fqdn}-seafile\`; create database \`${fqdn}-seahub\`;"
-	[ $? -ne 0 ] && exit 1
+	# [ $? -ne 0 ] && exit 1
 
 	mysql -P3306 -h $MYSQL_IP -e "GRANT ALL PRIVILEGES ON \`${fqdn}-ccnet\`.* to \`$MYSQL_USER\`@\`%\`;"
 	mysql -P3306 -h $MYSQL_IP -e "GRANT ALL PRIVILEGES ON \`${fqdn}-seafile\`.* to \`$MYSQL_USER\`@\`%\`;"
@@ -245,6 +250,7 @@ init_skydns() {
 	DEFAULT_FROM_EMAIL='noreply@cloudwalker.no'
 
 	S3QL_STORAGE=ams01.objectstorage.service.networklayer.com
+	S3QL_BACKUP=par01.objectstorage.service.networklayer.com
 	S3QL_API_USER=brukernavn:name
 	S3QL_API_PASSWD=langtpassord
 	S3QL_FSPASSWD=optionalpassword
@@ -331,6 +337,7 @@ modify="false"
 fsck="false"
 upgrade="false"
 list_docers="false"
+single_user="false"
 
 
 OPTIND=1
@@ -345,7 +352,8 @@ while getopts "BCD:DFI:PRSTUbcdflmo:rqt" option; do
 	P) mk_mysql_cred;;
 	Q) restore="true";;
 	R) rebuildFromBckp="true";;
-        S) init="--rm -it" ; shell="bash -o vi" ;;
+        #S) init="--rm -it" ; shell="bash -o vi" ;;
+        S) single_user="true";;
 	U) upgrade="true";;
 	b) backup="true";;
         c) create="true"  ;;
@@ -383,6 +391,7 @@ fi
 
 for server in $* ; do
 	global $server
+
 	if [ "$console" == "true" ] ; then  
 		exec docker exec -it $server_name bash -o vi
 	fi
@@ -392,27 +401,27 @@ for server in $* ; do
         	init="--rm -it"
 		shell="/bin/sh -c "
 		extra="/etc/my_init.d/01_create_s3ql_fs && umount.s3ql --debug /data"
-		[ "$create" == "true" -a -n "$server" -a "$debug" == "true" ] && make_s3ql_docker $server debug
-		[ "$create" == "true" -a -n "$server" ] && make_s3ql_docker $server
+		[ "$create" == "true" -a -n "$server_name" -a "$debug" == "true" ] && make_s3ql_docker $server_name debug
+		[ "$create" == "true" -a -n "$server_name" ] && make_s3ql_docker $server_name
 		exit 0
 	fi
 	if [ "$s3ql_clear" == "true" ] ; then  
 		init="--rm -it" 
 		shell="/bin/sh -c " 
 		extra="/etc/my_init.d/01_create_s3ql_fs ; umount.s3ql --debug /data ; s3qladm clear ${S3QL_TYPE}://${S3QL_STORAGE}/${S3QL_STORAGE_CONTAINER}/${S3QL_STORAGE_FS}/"
-		[ "$rm" == "true" -a -n "$server" ] && (rm_docker $server ; rm_database $server)
-		[ "$create" == "true" -a -n "$server" -a "$debug" == "true" ] && make_s3ql_docker $server debug
-		[ "$create" == "true" -a -n "$server" ] && make_s3ql_docker $server
+		[ "$rm" == "true" -a -n "$server_name" ] && (rm_docker $server_name ; rm_database $server_name)
+		[ "$create" == "true" -a -n "$server_name" -a "$debug" == "true" ] && make_s3ql_docker $server_name debug
+		[ "$create" == "true" -a -n "$server_name" ] && make_s3ql_docker $server_name
 		exit 0
 	fi
 
 
 	if [ "$backup" == "true" ] ; then
-		backup $server
+		backup $server_name
 	fi
 	if [ "$backup_disaster" == "true" ] ; then
-	 	extra_docker_opts="--volumes-from $server"
-		S3QL_STORAGE_FS=$server
+	 	extra_docker_opts="--volumes-from $server_name"
+		S3QL_STORAGE_FS=$server_name
 		init="--rm -it" 
 		shell="/bin/sh -c " 
 		date=$(date '+%d%m%Y-%H:%M')
@@ -430,9 +439,9 @@ for server in $* ; do
 			bash -o vi \
 			"
 
-		server=$server-restore
+		server=$server_name-restore
 		docker_image=raghon1/s3ql
-		[ "$create" == "true" -a -n "$server" ] && make_s3ql_docker $server
+		[ "$create" == "true" -a -n "$server_name" ] && make_s3ql_docker $server_name
 		exit 0
 	fi
 	if [ "$rebuildFromBckp" == "true" ] ; then
@@ -446,25 +455,29 @@ for server in $* ; do
 		shell="/bin/sh -c " 
 		extra="/etc/my_init.d/02_restore.sh"
 
-		servername=$server
-		[ "$create" == "true" -a -n "$server" ] && make_seafile_docker $server-data
+		[ "$create" == "true" -a -n "$server_name" ] && make_seafile_docker $server_name-data
 		unset extra
 		unset shell
 		AUTOCONF="false"
 
 		restore_latest=false
-		extra_docker_opts="$extra_docker_opts --restart=always --volumes-from $servername-data"
+		extra_docker_opts="$extra_docker_opts --restart=always --volumes-from $server_name-data"
 		init="-d" 
-		make_seafile_docker $servername
+		make_seafile_docker $server_name
 		exit 0
 	fi
 	
 
-	[ "$rm" == "true" -a -n "$server" ] && (rm_docker $server_name ; rm_database $server_name)
-	[ "$create" == "true" -a -n "$server" -a "$debug" == "true" ] && make_seafile_docker $server debug
-	if [ "$create" == "true" -a -n "$server" ] ; then
+	[ "$rm" == "true" -a -n "$server_name" ] && (rm_docker $server_name ; rm_database $server_name)
+	[ "$create" == "true" -a -n "$server_name" -a "$debug" == "true" ] && make_seafile_docker $server_name debug
+	if [ "$create" == "true" -a -n "$server_name" -a "${single_user}" == "true" ] ; then
+		init="--rm -it"
+		shell="bash -o vi"
+		make_seafile_docker ${server_name}-singleuser
+		exit 0
+	fi
+	if [ "$create" == "true" -a -n "$server_name" ] ; then
 		init="-it"
-		#servername=$server
 		make_seafile_docker $server_name-data
 		extra_docker_opts="$extra_docker_opts --restart=always --volumes-from ${server_name}-data"
 		init="-d"
@@ -475,12 +488,12 @@ for server in $* ; do
 	if [ "$modify" == "true"  -o  "$upgrade" == "true" ] ; then
 		# Get environment variables from running docker
 
-		mkdir -p /data/$server
-		docker exec -i $server env | egrep 'CCNET|MYSQL|SEA|restore|S3QL|fcgi' > /data/$server/env
-		. /data/$server/env
+		mkdir -p /data/$server_name
+		docker exec -i $server_name env | egrep 'CCNET|MYSQL|SEA|restore|S3QL|fcgi' > /data/$server_name/env
+		. /data/$server_name/env
 
-		docker stop $server
-		docker rename $server $server-old
+		docker stop $server_name
+		docker rename $server_name $server_name-old
 		servername=$server
 		extra_docker_opts="$extra_docker_opts --restart=always --volumes-from $servername-data"
 		init="-d"

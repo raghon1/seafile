@@ -1,0 +1,30 @@
+a { color:#A740FF; }
+.new-narrow-panel .hd {
+    color: #FFF;
+    font-size: 16px;
+    padding: 5px 20px;
+    background: none repeat scroll 0% 0% #AA5290;
+    border-bottom: 1px solid #D5D5D5;
+}
+.side-tabnav-tabs .tab-cur a, .side-tabnav-tabs .tab-cur a:hover {
+    background-color: #AA5290;
+}
+.side-tabnav h3.hd, .side-tabnav .hd h3 {
+    color: #AA5290;
+}
+#right-panel .hd .ui-state-active .a, #right-panel .hd .a:hover {
+    color: #AA5290;
+    text-decoration: none;
+    border-bottom-color: #AA5290;
+}
+#header .nav .a, #header .nav .a:visited {
+    color: #AA5290;
+    font-weight: bold;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.tabnav-tab-cur a, .tabnav-tab a:hover, .wiki-nav .cur-item .link, .wiki-nav .link:hover, #right-panel .hd .ui-state-active .a, #right-panel .hd .a:hover {
+    color: #AA5290;
+    text-decoration: none;
+    border-bottom-color: #AA5290;
+}

@@ -23,7 +23,7 @@ then
 fi
 
 
-INSTALLPATH="/opt/seafile/${SEAFILE_EDITION}-${SEAFILE_VERSION}"
+INSTALLPATH="/opt/seafile/seafile-server-${SEAFILE_VERSION}"
 
 cd "$INSTALLPATH"
 

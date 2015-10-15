@@ -1106,6 +1106,7 @@ class SeafDavConfigurator(AbstractConfigurator):
 enabled = false
 port = 8080
 fastcgi = false
+host = 0.0.0.0
 share_name = /
 '''
 

@@ -1,0 +1,104 @@
+{% extends "sysadmin/base.html" %}
+{% load seahub_tags i18n %}
+{% block cur_users %}tab-cur{% endblock %}
+
+{% block left_panel %}{{block.super}}
+<form action="{% url 'user_search' %}" method="get" class="side-search-form">
+    <input type="text" name="email" class="input" value="" placeholder="{% trans "Search users..." %}" />
+</form>
+{% endblock %}
+
+{% block right_panel %}
+<div class="tabnav ovhd">
+    <ul class="tabnav-tabs fleft">
+        <li class="tabnav-tab"><a href="{% url 'sys_useradmin' %}">{% trans "Database" %}</a></li>
+        {% if have_ldap %}
+        <li class="tabnav-tab"><a href="{% url 'sys_useradmin_ldap' %}">{% trans "LDAP" %}</a></li>
+        <li class="tabnav-tab"><a href="{% url 'sys_useradmin_ldap_imported' %}">{% trans "LDAP(imported)" %}</a></li>
+        {% endif %}
+        <li class="tabnav-tab tabnav-tab-cur"><a href="{% url 'sys_useradmin_admins' %}">{% trans "Admins" %}</a></li>
+    </ul>
+    <button id="add-admin-btn" class="fright"><img src="{{ MEDIA_URL }}img/add.png" alt="" class="add vam" /><span class="vam">{% trans "Add admin" %}</span></button>
+</div>
+
+<form id="add-admin-form"  method="post" name="add-admin-form" class="tab-popup hide">{% csrf_token %}
+    <h3 class="hd">{% trans "Add admins"%}</h3>
+    <div id="add-admin-tabs" class="tab-popup-tabs">
+        <ul class="tab-popup-tabs-nav">
+            <li class="tab"><a href="#enter" class="a">{% trans 'Enter' %}</a></li>
+        </ul>
+        <div id="enter">
+            <textarea id="added-member-name" name="user_email" placeholder="{% trans "emails, separated by ','" %}"></textarea><br />
+            <p class="tip">{% trans "Tip: the emails should be the users already added."%}</p>
+        </div>
+    </div>
+    <div class="bot">
+        <p class="error hide"></p>
+        <input type="submit" value="{% trans "Submit"%}" />
+    </div>
+</form>
+
+{% with is_admin_page=True%}
+{% include "sysadmin/useradmin_table.html" %}
+{% endwith %}
+
+<div id="activate-msg" class="hide">
+    <p>{% trans "Activating..., please wait" %}</p>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script type="text/javascript">
+var user_list = [], user_email;
+{% for user in not_admin_users %}
+user_email = '{{ user.email }}';
+user_list.push({value:user_email, label:user_email});
+{% endfor %}
+$('#add-admin-btn').click(function() {
+    var form = $("#add-admin-form");
+    form.modal({appendTo: "#main", focus:false});
+    $('#simplemodal-container').css({'height':'auto', 'padding':0});
+    $('#add-admin-tabs').tabs();
+    addAutocomplete('#added-member-name', '#enter', user_list);
+
+});
+$('#add-admin-form').submit(function() {
+    var form = $(this),
+        cur_tab_id = $('.ui-tabs-selected a', form).attr('href'),
+        post_data = '',
+        input = $('[name="user_email"]', form); 
+        post_data = input.val();
+
+    if (!post_data) {
+        apply_form_error(form.attr('id'), '{% trans "Please enter emails, or select some." %}');
+        return false;
+    }    
+
+    var submit_btn = $('[type="submit"]', form);
+    disable(submit_btn);
+    $.ajax({
+    url: '{% url 'batch_user_make_admin' %}',
+        type: 'POST',
+        dataType: 'json',
+        cache: false,
+        beforeSend: prepareCSRFToken,
+        data: {
+            'set_admin_emails': post_data
+        },
+        success: function(data) {
+            location.reload('true');
+        },
+        error: function(data, textStatus, jqXHR) {
+            var errors = $.parseJSON(data.responseText);
+            $.each(errors, function(index, value) {
+                apply_form_error(form.attr('id'), value);
+            });
+            enable(submit_btn);
+        }
+    });
+
+    return false;
+});
+{% include "sysadmin/useradmin_js.html" %}
+</script>
+{% endblock %}

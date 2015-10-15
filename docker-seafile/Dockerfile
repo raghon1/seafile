@@ -12,6 +12,9 @@ RUN apt-get update && apt-get install -y \
 	sqlite3 \
 	rsync \
 	pwgen \
+	python-memcache \
+	gettext \
+	mariadb-client \
 	python-mysqldb 
 
 RUN ulimit -n 30000
@@ -24,6 +27,8 @@ RUN curl -L -O https://bintray.com/artifact/download/seafile-org/seafile/seafile
 RUN tar xzf seafile-server_${SEAFILE_VERSION}_x86-64.tar.gz
 RUN rm -f seafile-server_${SEAFILE_VERSION}_x86-64.tar.gz
 RUN mkdir -p logs
+RUN apt-get clean
+RUN rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Config env variables
 ENV autostart true
@@ -73,7 +78,9 @@ COPY scripts/setup-seafile-mysql.sh /etc/my_init.d/03_setup-seafile-mysql.sh
 COPY scripts/fix_email.sh /etc/my_init.d/04_fix_email.sh
 COPY scripts/create_nginx_config.sh /etc/my_init.d/90_create_nginx_config.sh
 COPY scripts/finish.sh /etc/my_init.d/99_finish.sh
-COPY scripts/backup.sh /etc/my_init.d/02_backup.sh
+#COPY scripts/backup.sh /etc/my_init.d/02_backup.sh
+RUN mkdir -p /usr/local/bin
+COPY scripts/s3ql_backup.sh /usr/local/bin/s3ql_backup.sh
 COPY scripts/restore.sh /etc/my_init.d/02_restore.sh
 
 COPY scripts/check_init_admin.py /opt/seafile/seafile-server-${SEAFILE_VERSION}/check_init_admin.py
@@ -91,11 +98,13 @@ COPY scripts/seahub-stop.sh /etc/service/seahub/finish
 
 COPY scripts/seafile.crontab /root/seafile.crontab
 
-COPY scripts/seafile_custom.tar /root/seafile_custom.tar
-
 RUN crontab /root/seafile.crontab
 
-VOLUME /opt/seafile
+RUN mkdir -p /opt/seafile/seahub-data/custom
+COPY scripts/custom /opt/seafile/seahub-data/custom
+RUN chown -R seafile:seafile /opt/seafile/seahub-data
+
+VOLUME /root/.s3ql /opt/seafile
 EXPOSE 10001 12001 8000 8082
 
 # Baseimage init process

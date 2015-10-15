@@ -1,0 +1,37 @@
+{% load i18n %}
+<div id="footer" class="ovhd">
+  <div class="items fleft">
+    <div class="item">
+      <h4>{% trans "Documents" %}</h4>
+      <ul>
+        <li><a href="http://cloudwalker.no/produkter-og-losninger/sikker-fildeling/" target="_blank">{% trans "Introduction" %}</a></li>
+	<li><a href="https://seafilepro.cloudwalker.no/f/bff1231a3f/" target="_blank">{% trans "Help" %}</a></li>
+      </ul>
+
+    </div>
+    <div class="item">
+      <h4>{% trans "Client" %}</h4>
+      <ul>
+        <li><a href="{% url 'download_client' %}">{% trans "Seafile for Windows, Mac and Linux" %}</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="other-info fright">
+    <p>{% trans "Server Version: " %}{{ seafile_version }}</p>
+    <p><a href="http://www.cloudwalker.no">Cloudwalker AS</a></p>
+    <p><a href="http://cloudwalker.no/om-oss/" target="_blank">{% trans "About Us" %}</a></p>
+	<a 
+		href="https://www.ssl.com/site_seals/694d570b-5506eb43/site_report" 
+		onclick="window.open('https://www.ssl.com/site_seals/694d570b-5506eb43/site_report', 'site_report','height=500, width=400, top=100, left=100'); return false;" 
+		onmouseover="this.style.cursor='pointer'" 
+		style="border: none;"
+		>
+		<img 
+			alt="Ssl_seal_1" 
+			src="https://www.ssl.com/images/ssl_seal_1.png" 
+			width="130px" 
+		/>
+	</a>
+  </div>
+</div>
+
