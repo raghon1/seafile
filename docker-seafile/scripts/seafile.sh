@@ -3,7 +3,10 @@
 add2sed=""
 [ "${autostart}" = 'true' -a -x /opt/seafile/seafile-server-latest/seafile.sh ] || exit 0
 
-
+# Fix Database IP
+sed -i 's/^host =.*/host = mysql-container/' /data/seafile-data/seafile.conf
+sed -i 's/^HOST =.*/HOST = mysql-container/' /opt/seafile/ccnet/ccnet.conf
+sed -i "s/'HOST':.*/'HOST': 'mysql-container',/" /opt/seafile/seahub_settings.py
 
 sed -i '/^SERVICE_URL.*/{h;s/=.*/= \"https:\/\/'$CCNET_IP'\"/};${x;/^$/{s//SERVICE_URL = \"https:\/\/'$CCNET_IP'\/seafhttp\"/;H};x}' /opt/seafile/ccnet/ccnet.conf
 
@@ -40,7 +43,6 @@ MEM
 fi
 
 
-set -x
 #Move seahub dir to Volume and make symbolic link
 mkdir -p ${STATIC_FILES_DIR}${CCNET_IP}
 if [ ! -d ${STATIC_FILES_DIR}${CCNET_IP}/media ] ; then

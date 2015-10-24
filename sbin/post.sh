@@ -55,7 +55,8 @@ global() {
 	# finnes container fra før ? 
 	if [ -z "$S3QL_STORAGE_CONTAINER" ] ; then
 		$dir/addContainer.py -a CUSTOMER-$fqdn
-		$dir/addContainer.py -a CUSTOMER-$fqdn -D $(echo $S3QL_BACKUP | cut -f1 -d\.)
+		#$dir/addContainer.py -a CUSTOMER-$fqdn -D $(echo $S3QL_BACKUP | cut -f1 -d\.)
+		$dir/addContainer.py -a CUSTOMER-$fqdn -D par01
 		S3QL_STORAGE_CONTAINER=CUSTOMER-$fqdn
 		S3QL_STORAGE_FS=${server}-seafile.s3ql
 	else
@@ -131,7 +132,7 @@ make_seafile_docker() {
 	 --volumes-from nginx \
 	 -e fcgi=true \
 	 -e autonginx=true \
-	 -e autoconf=false \
+	 -e autoconf=$AUTOCONF \
 	 -e delete_data_dir=$DELETE_DATA_DIR \
 	 -e "CCNET_IP=$CCNET_IP"\
 	 -e "EXISTING_DB=$EXISTING_DB" \
