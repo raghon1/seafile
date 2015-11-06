@@ -23,9 +23,9 @@ then
 fi
 
 
-INSTALLPATH="/opt/seafile/seafile-server-${SEAFILE_VERSION}"
+INSTALLPATH="/opt/seafile/seafile*-server-${SEAFILE_VERSION}"
 
-cd "$INSTALLPATH"
+cd $INSTALLPATH
 
 python_script=setup-seafile-mysql.py
 

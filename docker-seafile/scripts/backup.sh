@@ -23,8 +23,8 @@ if df -t fuse.s3ql /data >/dev/null 2>&1 ; then
 	mkdir -p ${bkpdir}/$date ${bkpdir}/$sql
         exec 1> ${bkpdir}/$date/backup.log 2>&1
 
-        echo "Backing up seafile prog: /etc/nginx/certs/$CCNET_IP $sf/ccnet $sf/conf $sf/logs $sf/pids $sf/seafile-server* $sf/seahub* $sf/nginx/${CCNET_IP}"
-	find /etc/nginx/certs/$CCNET_IP $sf/ccnet $sf/conf $sf/logs $sf/pids $sf/seafile-server* $sf/seahub* $sf/nginx/${CCNET_IP} | cpio -o | gzip > ${bkpdir}/$prog
+        echo "Backing up seafile prog: /etc/nginx/certs/$CCNET_IP $sf/ccnet $sf/conf $sf/logs $sf/pids $sf/seafile-*server* $sf/seahub* $sf/nginx/${CCNET_IP}"
+	find /etc/nginx/certs/$CCNET_IP $sf/ccnet $sf/conf $sf/logs $sf/pids $sf/seafile-*server* $sf/seahub* $sf/nginx/${CCNET_IP} | cpio -o | gzip > ${bkpdir}/$prog
 
         echo "Backing up seafile data : ${SEAFILE_DATA}"
 	s3qlcp ${SEAFILE_DATA} ${bkpdir}/$data

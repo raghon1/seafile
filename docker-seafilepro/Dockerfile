@@ -1,7 +1,7 @@
 FROM		raghon1/s3ql
 MAINTAINER 	Ragnar Hongset <raghon@raghon.no>
 WORKDIR /opt/seafile
-ENV SEAFILE_VERSION 4.4.1
+ENV SEAFILE_VERSION 4.4.3
 
 # Based on the fine work of Guilhem Berna  <guilhem.berna@gmail.com>
 
@@ -30,11 +30,8 @@ RUN apt-get update && apt-get install -y \
 	rm -f seafile-pro-server-latest.tar.gz && \
 	mkdir -p logs && \
 	apt-get clean && \
-	rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-
-#RUN useradd -d /opt/seafile -m seafile
-#https://bintray.com/artifact/download/seafile-org/seafile/seafile-server_4.3.2_x86-64.tar.gz
+	rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
+	useradd -d /opt/seafile -m seafile
 
 # Config env variables
 ENV 	autostart=true \
@@ -68,5 +65,48 @@ ENV 	autostart=true \
 	restore_latest=false \
 	restore_prog=true \
 	restore_data=true \
-	restore_sql=true \
+	restore_sql=true
 
+#removing default seafile installation scripts to replace them with our own
+#RUN rm seafile-pro-server-${SEAFILE_VERSION}/check_init_admin.py
+#RUN rm seafile-pro-server-${SEAFILE_VERSION}/setup-seafile-mysql.py
+
+RUN mkdir -p /etc/my_init.d
+
+#Adding all our scripts
+COPY scripts/02_permissions /etc/my_init.d/02_permissions.sh
+COPY scripts/setup-seafile-mysql.sh /etc/my_init.d/03_setup-seafile-mysql.sh
+COPY scripts/fix_email.sh /etc/my_init.d/04_fix_email.sh
+COPY scripts/create_nginx_config.sh /etc/my_init.d/90_create_nginx_config.sh
+COPY scripts/finish.sh /etc/my_init.d/99_finish.sh
+RUN mkdir -p /usr/local/bin
+COPY scripts/s3ql_backup.sh /usr/local/bin/s3ql_backup.sh
+COPY scripts/restore.sh /etc/my_init.d/02_restore.sh
+
+#COPY scripts/check_init_admin.py /opt/seafile/seafile-pro-server-${SEAFILE_VERSION}/check_init_admin.py
+#COPY scripts/setup-seafile-mysql.py /opt/seafile/seafile-pro-server-${SEAFILE_VERSION}/setup-seafile-mysql.py
+
+COPY nginx.conf /root/seafile.conf
+RUN chown -R seafile:seafile /opt/seafile
+
+# Seafile daemons
+RUN mkdir /etc/service/seafile /etc/service/seahub
+COPY scripts/seafile.sh /etc/service/seafile/run
+COPY scripts/seahub.sh /etc/service/seahub/run
+COPY scripts/seafile-stop.sh /etc/service/seafile/finish
+COPY scripts/seahub-stop.sh /etc/service/seahub/finish
+
+COPY scripts/seafile.crontab /root/seafile.crontab
+COPY scripts/seafile_debian.sh /opt/seafile/
+
+RUN crontab /root/seafile.crontab
+
+RUN mkdir -p /opt/seafile/seahub-data/custom
+COPY scripts/custom /opt/seafile/seahub-data/custom
+RUN chown -R seafile:seafile /opt/seafile/seahub-data
+
+VOLUME /root/.s3ql /opt/seafile
+EXPOSE 8000 8082
+
+# Baseimage init process
+#ENTRYPOINT ["/sbin/my_init"]

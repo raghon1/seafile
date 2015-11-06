@@ -46,7 +46,7 @@ fi
 #Move seahub dir to Volume and make symbolic link
 mkdir -p ${STATIC_FILES_DIR}${CCNET_IP}
 if [ ! -d ${STATIC_FILES_DIR}${CCNET_IP}/media ] ; then
-	mv /opt/seafile/seafile-server-${SEAFILE_VERSION}/seahub/media ${STATIC_FILES_DIR}${CCNET_IP}
+	mv /opt/seafile/seafile*-server-${SEAFILE_VERSION}/seahub/media ${STATIC_FILES_DIR}${CCNET_IP}
 	cp -rp ${STATIC_FILES_DIR}${CCNET_IP}/media/assets/scripts/i18n/sv ${STATIC_FILES_DIR}${CCNET_IP}/media/assets/scripts/i18n/nb-no
 fi
 if [ ! -h /opt/seafile/seafile-server-latest/seahub/media ] ; then
@@ -82,7 +82,7 @@ chown -R seafile:seafile /opt/seafile/seafile-server-latest/seahub/locale
 cd -
 
 chown -R seafile:seafile ${STATIC_FILES_DIR}
-chown -h seafile:seafile /opt/seafile/seafile-server-${SEAFILE_VERSION}/seahub/media
+chown -h seafile:seafile /opt/seafile/seafile-*server-${SEAFILE_VERSION}/seahub/media
 chown -h seafile:seafile /opt/seafile/seahub-data/avatars
 
 su -c "/opt/seafile/seafile-server-latest/seafile.sh start" seafile

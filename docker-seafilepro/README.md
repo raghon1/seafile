@@ -1,4 +1,8 @@
-# Seafile 4 for Docker
+# Seafile Pro 4 Docker
+
+You must manually download the seafile-pro-server software to the directory src inside this docker build, as seafile provides a unique download link for all customers.
+Example: curl -L -o src/seafile-pro-server-latest.tar.gz  "https://cloud.seafile.de/d/SOMEOTHERTEXT/files/?p=/latest/seafile-pro-server_4.4.3_x86-64.tar.gz&dl=1"
+
 
 [Seafile](http://www.seafile.com/) is a "next-generation open source cloud storage
 with advanced features on file syncing, privacy protection and teamwork".
